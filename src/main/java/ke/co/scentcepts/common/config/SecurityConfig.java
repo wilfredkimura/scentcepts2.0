@@ -8,6 +8,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -19,22 +20,25 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // Global HTTP rules for entire Scentcepts application. This is where we define which endpoints are public and which require authentication.
+    // Global HTTP rules for entire Scentcepts application. This is where we define
+    // which endpoints are public and which require authentication.
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // Disable CSRF for stateless JWT APIs
-            .cors(cors -> cors.configure(http)) // Allow Next.js cross-origin requests
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                // Publicly accessible endpoints
-                .requestMatchers("/api/auth/**").permitAll()        
-                .requestMatchers("/api/perfumes").permitAll()       
-                .requestMatchers("/api/payments/callback").permitAll() 
-                // All other endpoints require authentication
-                .anyRequest().authenticated()                       
-            );
-            
+                .csrf(csrf -> csrf.disable()) // Disable CSRF for stateless JWT APIs
+                .cors(cors -> cors.configure(http)) // Allow Next.js cross-origin requests
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        // Publicly accessible endpoints
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/perfumes").permitAll()
+                        .requestMatchers("/api/payments/callback").permitAll()
+                        // All other endpoints require authentication
+                        .anyRequest().authenticated())
+
+                // This tells Spring: "Before running ANY request, run my custom filter first"
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 }
