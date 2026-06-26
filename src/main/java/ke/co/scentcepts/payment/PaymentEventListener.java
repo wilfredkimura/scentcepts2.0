@@ -39,9 +39,13 @@ public class PaymentEventListener {
     private String callbackUrl;
 
     private final RestTemplate restTemplate;
+    private final PaymentTransactionRepository transactionRepository;
 
-    public PaymentEventListener() {
+    // PaymentEventListener constructor that initializes -
+    // PaymentTransactionRepository dependancy.
+    public PaymentEventListener(PaymentTransactionRepository transactionRepository) {
         this.restTemplate = new RestTemplate();
+        this.transactionRepository = transactionRepository;
     }
 
     @Async
@@ -84,6 +88,26 @@ public class PaymentEventListener {
                     "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
                     request,
                     JsonNode.class);
+
+            JsonNode responseBody = response.getBody();
+            if (responseBody != null && responseBody.has("CheckoutRequestID")) {
+
+                // Makes the CheckoutRequestID as a String value - checkoutRequestId.
+                // Creates a new PaymentTransaction entity to store the CheckoutRequestID and
+                // other relevant information in the payment_transactions table.
+                // This is the tracking ID that will be used to track the payment status.
+                String checkoutRequestId = responseBody.get("CheckoutRequestID").asText();
+
+                // CRITICAL FIX: Save the Safaricom tracking ID alongside the Order context
+                PaymentTransaction transaction = new PaymentTransaction(
+                        checkoutRequestId,
+                        event.orderId(),
+                        event.perfumeId(),
+                        event.quantity());
+                transactionRepository.save(transaction);
+
+                System.out.println("STK Push triggered. Tracking ID saved: " + checkoutRequestId);
+            }
 
             System.out.println("STK Push Response: " + response.getBody());
             // Note: We don't complete the order here. We wait for the asynchronous
