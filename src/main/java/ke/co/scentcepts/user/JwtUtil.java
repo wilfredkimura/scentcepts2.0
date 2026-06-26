@@ -31,6 +31,7 @@ public class JwtUtil {
     // This method allows us to extract the email and role securely from the token
 
     // method extracts all claims from the token
+    // removed Jwts.parserBuilder() which was removed in JJWT version 0.12.5 and replaced with Jwts.parser() which is the new way to parse tokens in the latest version of JJWT.
     public Claims extractAllClaims(String token) {
     return Jwts.parser()
             .verifyWith((javax.crypto.SecretKey) key)
