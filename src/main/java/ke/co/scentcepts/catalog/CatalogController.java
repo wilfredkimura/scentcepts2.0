@@ -28,7 +28,8 @@ public class CatalogController {
     // @PathVariable binds the {id} in the URL to the id parameter in the method
     public ResponseEntity<Perfume> getPerfumeById(@PathVariable Long id) {
         return perfumeRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(ResponseEntity::ok) // wraps the perfume in a 200 OK response
+                .orElse(ResponseEntity.notFound().build()); // returns a 404 Not Found response if the perfume is not
+                                                            // found
     }
 }
