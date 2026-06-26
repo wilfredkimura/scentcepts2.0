@@ -14,6 +14,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
+    private final JwtAuthenticationFilter jwtAuthFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter) {
+    this.jwtAuthFilter = jwtAuthFilter;
+    }   
+
+
     // Expose BCrypt as a bean for the AuthController to use
     @Bean
     public PasswordEncoder passwordEncoder() {
