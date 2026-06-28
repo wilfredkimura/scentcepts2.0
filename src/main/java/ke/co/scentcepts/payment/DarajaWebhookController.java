@@ -5,21 +5,27 @@
 
 package ke.co.scentcepts.payment;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import ke.co.scentcepts.common.events.PaymentCompletedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.Optional;
 
 @RestController // HTTP rest endpoints
 @RequestMapping("/api/payments") // Base url to our rest endpoints
 public class DarajaWebhookController {
-    // Inject ApplicationEventPublisher(datatype) to publish events
+    
+    // ApplicationEventPublisher handles dispatching PaymentCompletedEvent locally
     private final ApplicationEventPublisher eventPublisher;
+    
+    // PaymentTransactionRepository is used to look up transaction details using Safaricom's CheckoutRequestID
+    private final PaymentTransactionRepository transactionRepository;
 
-    // Constructor injection for ApplicationEventPublisher
-    public DarajaWebhookController(ApplicationEventPublisher eventPublisher) {
+    // Constructor injecting both the event publisher and the transaction repository
+    public DarajaWebhookController(ApplicationEventPublisher eventPublisher, PaymentTransactionRepository transactionRepository) {
         this.eventPublisher = eventPublisher;
+        this.transactionRepository = transactionRepository;
     }
 
     // Mpesa Callback URL endpoint to receive webhook notifications from Safaricom
@@ -28,19 +34,23 @@ public class DarajaWebhookController {
         System.out.println("Payment Module: Webhook payload received from Safaricom.");
 
         try {
-            // Traverse Safaricom's nested JSON structure
+            // 1. Traverse Safaricom's nested JSON structure to retrieve result parameters
             JsonNode stkCallback = payload.path("Body").path("stkCallback");
             int resultCode = stkCallback.path("ResultCode").asInt();
             String resultDesc = stkCallback.path("ResultDesc").asText();
+            String checkoutRequestId = stkCallback.path("CheckoutRequestID").asText(); // Unique tracking ID returned by Safaricom
+
+            // 2. Fetch the corresponding transaction mapping record from the local database using the tracking ID
+            Optional<PaymentTransaction> transactionOpt = transactionRepository.findByCheckoutRequestId(checkoutRequestId);
 
             if (resultCode == 0) {
-                // ResultCode 0 means the customer entered their PIN and had sufficient funds
+                // ResultCode 0 means the customer entered their PIN and the transaction succeeded
                 JsonNode metadataItems = stkCallback.path("CallbackMetadata").path("Item");
 
                 String mpesaReceipt = "";
                 double amountPaid = 0.0;
 
-                // Safaricom sends metadata as an array of key-value pairs, so we must iterate
+                // Safaricom sends metadata (e.g., receipt number, amount) as an array of name/value pairs
                 for (JsonNode item : metadataItems) {
                     String name = item.path("Name").asText();
                     if ("MpesaReceiptNumber".equals(name)) {
@@ -50,26 +60,39 @@ public class DarajaWebhookController {
                     }
                 }
 
-                System.out.println("Payment Successful! Receipt: " + mpesaReceipt + " Amount: " + amountPaid);
+                System.out.println("M-Pesa Callback: Payment Success! Receipt: " + mpesaReceipt + " Amount: " + amountPaid);
 
-                // Note: In a production environment, you would query your PaymentTransaction
-                // table
-                // using the CheckoutRequestID to retrieve the exact OrderID and PerfumeID
-                // context.
-                // For this architecture, we dispatch the event with the extracted data.
+                // Update the payment transaction to COMPLETED and dispatch the local event to finalize the order
+                if (transactionOpt.isPresent()) {
+                    PaymentTransaction transaction = transactionOpt.get();
+                    transaction.setStatus("COMPLETED");
+                    transactionRepository.save(transaction); // Persist status update
 
-                String orderId = "mapped-from-db"; // Mock mapping for architecture consistency
-                Long perfumeId = 1L; // Mock mapping
-                Integer quantity = 1;
-
-                eventPublisher.publishEvent(new PaymentCompletedEvent(orderId, perfumeId, quantity, mpesaReceipt));
+                    // Fire internal event to trigger stock reduction and change order status to COMPLETED
+                    eventPublisher.publishEvent(new PaymentCompletedEvent(
+                            transaction.getOrderId(),
+                            transaction.getPerfumeId(),
+                            transaction.getQuantity(),
+                            mpesaReceipt
+                    ));
+                    System.out.println("M-Pesa Callback: Updated transaction log and published PaymentCompletedEvent for Order ID: " + transaction.getOrderId());
+                } else {
+                    System.err.println("M-Pesa Callback Error: No transaction record found for CheckoutRequestID: " + checkoutRequestId);
+                }
 
             } else {
-                // ResultCode is non-zero (e.g., user canceled, timed out, or insufficient
-                // funds)
-                System.out.println("Payment Failed or Canceled. Reason: " + resultDesc);
-                // You could publish a PaymentFailedEvent here to update the Order status to
-                // FAILED.
+                // ResultCode is non-zero, meaning the payment failed or was cancelled by the user
+                System.out.println("M-Pesa Callback: Payment Failed or Canceled. Reason: " + resultDesc);
+
+                // Update the transaction status to FAILED in the local database for auditing
+                if (transactionOpt.isPresent()) {
+                    PaymentTransaction transaction = transactionOpt.get();
+                    transaction.setStatus("FAILED");
+                    transactionRepository.save(transaction);
+                    System.out.println("M-Pesa Callback: Transaction ID " + checkoutRequestId + " status set to FAILED.");
+                } else {
+                    System.err.println("M-Pesa Callback Error: No transaction record found for failed CheckoutRequestID: " + checkoutRequestId);
+                }
             }
 
             // Always return 200 OK so Safaricom knows we received the webhook

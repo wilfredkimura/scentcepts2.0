@@ -1,7 +1,7 @@
 // TODO: Confirm with DarajaAPI3.0 documentation how to initiate STK push in SpringBoot.
 package ke.co.scentcepts.payment;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import ke.co.scentcepts.common.events.OrderCreatedEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
