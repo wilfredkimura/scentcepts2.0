@@ -41,52 +41,44 @@ public class CatalogDataInitializer implements CommandLineRunner {
      */
     @Override
     public void run(String... args) throws Exception {
-        // Query the database to retrieve the count of existing perfumes
-        long count = perfumeRepository.count();
-        System.out.println("Catalog Data Initializer: Checking database... Found " + count + " perfumes.");
+        System.out.println("Catalog Data Initializer: Checking database records...");
 
-        if (count == 0) {
-            System.out.println("Catalog Data Initializer: Database is empty. Seeding sample perfumes...");
+        // Update or create initial perfume instances with real images and KSH prices
+        updateOrCreatePerfume(
+                "Chanel No. 5", 
+                "Chanel", 
+                new BigDecimal("19500.00"), 
+                50, 
+                "A legendary floral fragrance with notes of aldehydes, jasmine, and rose.",
+                "https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&q=80&w=800"
+        );
 
-            // Create initial perfume instances with name, brand, price, stock count, and description details
-            Perfume p1 = new Perfume(
-                    "Chanel No. 5", 
-                    "Chanel", 
-                    new BigDecimal("150.00"), 
-                    50, 
-                    "A legendary floral fragrance with notes of aldehydes, jasmine, and rose."
-            );
+        updateOrCreatePerfume(
+                "Sauvage", 
+                "Dior", 
+                new BigDecimal("15600.00"), 
+                100, 
+                "A radically fresh composition, raw and noble all at once, with calabrian bergamot and amberwood.",
+                "https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800"
+        );
 
-            Perfume p2 = new Perfume(
-                    "Sauvage", 
-                    "Dior", 
-                    new BigDecimal("120.00"), 
-                    100, 
-                    "A radically fresh composition, raw and noble all at once, with calabrian bergamot and amberwood."
-            );
+        updateOrCreatePerfume(
+                "Bleu de Chanel", 
+                "Chanel", 
+                new BigDecimal("16900.00"), 
+                75, 
+                "An aromatic-woody fragrance that unites the invigorating freshness of citrus with the woody whisper of cedar.",
+                "https://images.unsplash.com/photo-1588405748880-12d1d2a59f75?auto=format&fit=crop&q=80&w=800"
+        );
 
-            Perfume p3 = new Perfume(
-                    "Bleu de Chanel", 
-                    "Chanel", 
-                    new BigDecimal("130.00"), 
-                    75, 
-                    "An aromatic-woody fragrance that unites the invigorating freshness of citrus with the woody whisper of cedar."
-            );
-
-            Perfume p4 = new Perfume(
-                    "Black Opium", 
-                    "Yves Saint Laurent", 
-                    new BigDecimal("140.00"), 
-                    60, 
-                    "A seductive, warm and spicy fragrance highlighting notes of rich black coffee, vanilla, and sweet white flowers."
-            );
-
-            // Batch save all configured records to the Postgres database
-            perfumeRepository.saveAll(Arrays.asList(p1, p2, p3, p4));
-            System.out.println("Catalog Data Initializer: Sample perfumes successfully seeded into the database.");
-        } else {
-            System.out.println("Catalog Data Initializer: Skip seeding. Database already has records.");
-        }
+        updateOrCreatePerfume(
+                "Black Opium", 
+                "Yves Saint Laurent", 
+                new BigDecimal("18200.00"), 
+                60, 
+                "A seductive, warm and spicy fragrance highlighting notes of rich black coffee, vanilla, and sweet white flowers.",
+                "https://images.unsplash.com/photo-1595425970377-c9703c48657a?auto=format&fit=crop&q=80&w=800"
+        );
 
         // Check if the default administrator account exists in database. If absent, seed it automatically.
         if (userRepository.findByEmail("admin@scentcepts.com").isEmpty()) {
@@ -101,5 +93,27 @@ public class CatalogDataInitializer implements CommandLineRunner {
         } else {
             System.out.println("Catalog Data Initializer: Administrator account admin@scentcepts.com is already active.");
         }
+    }
+
+    private void updateOrCreatePerfume(String name, String brand, BigDecimal price, int stock, String description, String imageUrl) {
+        perfumeRepository.findAll().stream()
+                .filter(p -> p.getName().equalsIgnoreCase(name))
+                .findFirst()
+                .ifPresentOrElse(
+                    p -> {
+                        p.setBrand(brand);
+                        p.setPrice(price);
+                        p.setStockCount(stock);
+                        p.setDescription(description);
+                        p.setImageUrl(imageUrl);
+                        perfumeRepository.save(p);
+                        System.out.println("Catalog Data Initializer: Updated existing perfume record: " + name);
+                    },
+                    () -> {
+                        Perfume p = new Perfume(name, brand, price, stock, description, imageUrl);
+                        perfumeRepository.save(p);
+                        System.out.println("Catalog Data Initializer: Created new perfume record: " + name);
+                    }
+                );
     }
 }

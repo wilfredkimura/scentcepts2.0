@@ -3,8 +3,13 @@ package ke.co.scentcepts.order;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 import ke.co.scentcepts.user.User;
 import ke.co.scentcepts.user.UserRepository;
+import ke.co.scentcepts.catalog.PerfumeRepository;
+import ke.co.scentcepts.payment.PaymentTransactionRepository;
+import ke.co.scentcepts.payment.PaymentTransaction;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
@@ -24,17 +29,26 @@ public class OrderController {
     // Injection of UserRepository to look up the currently logged-in user profile
     private final UserRepository userRepository;
 
+    // Injection of PerfumeRepository to fetch catalog details for receipts
+    private final PerfumeRepository perfumeRepository;
+
+    // Injection of PaymentTransactionRepository to store transaction receipts
+    private final PaymentTransactionRepository transactionRepository;
+
     /**
      * Constructor injection ensures Spring Boot automatically supplies the dependencies.
-     *
-     * @param orderService the service implementation managing order operations
-     * @param orderRepository database access interface for Order entity management
-     * @param userRepository database access interface for User entity management
      */
-    public OrderController(OrderServiceImpl orderService, OrderRepository orderRepository, UserRepository userRepository) {
+    public OrderController(
+            OrderServiceImpl orderService, 
+            OrderRepository orderRepository, 
+            UserRepository userRepository,
+            PerfumeRepository perfumeRepository,
+            PaymentTransactionRepository transactionRepository) {
         this.orderService = orderService;
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
+        this.perfumeRepository = perfumeRepository;
+        this.transactionRepository = transactionRepository;
     }
 
     /**
@@ -86,5 +100,93 @@ public class OrderController {
         return orderRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * POST endpoint to simulate a successful Safaricom callback transaction.
+     * Accessible by authenticated users.
+     */
+    @PostMapping("/{id}/mock-pay")
+    public ResponseEntity<?> mockPay(@PathVariable String id) {
+        System.out.println("Order Controller: Simulating mock payment callback for Order ID: " + id);
+        try {
+            // Retrieve pending order
+            Order order = orderRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Order not found with ID: " + id));
+
+            // Transition status to COMPLETED
+            order.setStatus("COMPLETED");
+            orderRepository.save(order);
+
+            // Log and persist transaction record in database
+            PaymentTransaction transaction = new PaymentTransaction(
+                    "MOCK_" + System.currentTimeMillis(),
+                    order.getId(),
+                    order.getPerfumeId(),
+                    order.getQuantity(),
+                    order.getUserId()
+            );
+            transaction.setStatus("COMPLETED");
+            transactionRepository.save(transaction);
+
+            System.out.println("Order Controller: Mock payment processed. Order & Transaction transitioned to COMPLETED.");
+            return ResponseEntity.ok(Map.of("message", "Mock payment processed successfully", "orderId", id));
+        } catch (Exception e) {
+            System.err.println("Mock payment error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * GET endpoint to retrieve standard users' past completed receipts.
+     * Accessible by authenticated users.
+     */
+    @GetMapping("/my-receipts")
+    public ResponseEntity<?> getMyReceipts() {
+        System.out.println("Order Controller: Retrieving receipts for authenticated user");
+        try {
+            // Find authenticated user email principal
+            String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Authenticated user details not found."));
+
+            // Get completed orders placed by user ID
+            List<Order> orders = orderRepository.findAll().stream()
+                    .filter(o -> o.getUserId() != null && o.getUserId().equals(user.getId()))
+                    .filter(o -> "COMPLETED".equals(o.getStatus()))
+                    .collect(Collectors.toList());
+
+            // Map order invoices with catalog description names and image links
+            List<Map<String, Object>> receipts = orders.stream().map(order -> {
+                String perfumeName = "Unknown Fragrance";
+                String perfumeBrand = "Scentcepts";
+                String perfumeImageUrl = "";
+
+                if (order.getPerfumeId() != null) {
+                    var perfumeOpt = perfumeRepository.findById(order.getPerfumeId());
+                    if (perfumeOpt.isPresent()) {
+                        perfumeName = perfumeOpt.get().getName();
+                        perfumeBrand = perfumeOpt.get().getBrand();
+                        perfumeImageUrl = perfumeOpt.get().getImageUrl();
+                    }
+                }
+
+                Map<String, Object> receipt = new java.util.HashMap<>();
+                receipt.put("id", order.getId());
+                receipt.put("phone", order.getPhone());
+                receipt.put("amount", order.getAmount());
+                receipt.put("quantity", order.getQuantity());
+                receipt.put("status", order.getStatus());
+                receipt.put("perfumeName", perfumeName);
+                receipt.put("perfumeBrand", perfumeBrand);
+                receipt.put("perfumeImageUrl", perfumeImageUrl != null ? perfumeImageUrl : "");
+                return receipt;
+            }).collect(Collectors.toList());
+
+            return ResponseEntity.ok(receipts);
+        } catch (Exception e) {
+            System.err.println("Error fetching receipts: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

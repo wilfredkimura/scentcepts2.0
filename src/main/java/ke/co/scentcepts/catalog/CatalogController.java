@@ -2,7 +2,10 @@ package ke.co.scentcepts.catalog;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.multipart.MultipartFile;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
@@ -57,6 +60,7 @@ public class CatalogController {
             perfume.setPrice(details.getPrice());
             perfume.setStockCount(details.getStockCount());
             perfume.setDescription(details.getDescription());
+            perfume.setImageUrl(details.getImageUrl());
             return ResponseEntity.ok(perfumeRepository.save(perfume));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -72,5 +76,33 @@ public class CatalogController {
             perfumeRepository.delete(perfume);
             return ResponseEntity.ok(Map.of("message", "Perfume deleted successfully"));
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * POST endpoint to upload raw dynamic files and save them locally.
+     * Restricted to ROLE_ADMIN users in SecurityConfig.
+     */
+    @PostMapping("/upload")
+    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
+        System.out.println("Catalog Controller: Received file upload request for file " + file.getOriginalFilename());
+        try {
+            // Generate a safe unique filename to avoid naming conflicts on the local folder path
+            String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename().replaceAll("\\s+", "_");
+            Path path = Paths.get("uploads").toAbsolutePath().resolve(fileName);
+            
+            // Create uploads folder inside project root if absent
+            Files.createDirectories(path.getParent());
+            
+            // Write raw bytes to disk
+            Files.write(path, file.getBytes());
+            
+            String imageUrl = "http://localhost:8080/uploads/" + fileName;
+            System.out.println("Catalog Controller: File saved at: " + path.toString() + " -> " + imageUrl);
+            
+            return ResponseEntity.ok(Map.of("imageUrl", imageUrl));
+        } catch (Exception e) {
+            System.err.println("File upload error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

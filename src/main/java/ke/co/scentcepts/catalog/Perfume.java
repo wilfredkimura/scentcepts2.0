@@ -36,6 +36,9 @@ public class Perfume {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "image_url", columnDefinition = "TEXT")
+    private String imageUrl;
+
     public Perfume() {
     }
 
@@ -45,6 +48,15 @@ public class Perfume {
         this.price = price;
         this.stockCount = stockCount;
         this.description = description;
+    }
+
+    public Perfume(String name, String brand, BigDecimal price, Integer stockCount, String description, String imageUrl) {
+        this.name = name;
+        this.brand = brand;
+        this.price = price;
+        this.stockCount = stockCount;
+        this.description = description;
+        this.imageUrl = imageUrl;
     }
 
     // Getters and Setters
@@ -90,5 +102,13 @@ public class Perfume {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }

@@ -288,3 +288,59 @@ export async function adminDeleteUser(id) {
     }
     return response.json();
 }
+
+/**
+ * Uploads a perfume image file to the static upload folder.
+ * Restricted to ROLE_ADMIN.
+ */
+export async function uploadPerfumeImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers = new Headers();
+    if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers.append('Authorization', `Bearer ${token}`);
+        }
+    }
+
+    const response = await fetch(`${BASE_URL}/perfumes/upload`, {
+        method: 'POST',
+        headers: headers,
+        body: formData
+    });
+
+    if (!response.ok) {
+        throw new Error('Image upload failed');
+    }
+    return response.json();
+}
+
+/**
+ * Triggers a mock payment success callback on the backend for simulation.
+ */
+export async function mockPayOrder(id) {
+    const response = await fetch(`${BASE_URL}/orders/${id}/mock-pay`, {
+        method: 'POST',
+        headers: getHeaders()
+    });
+    if (!response.ok) {
+        throw new Error('Mock payment simulation failed');
+    }
+    return response.json();
+}
+
+/**
+ * Fetches standard users' past completed receipts.
+ */
+export async function getMyReceipts() {
+    const response = await fetch(`${BASE_URL}/orders/my-receipts`, {
+        method: 'GET',
+        headers: getHeaders()
+    });
+    if (!response.ok) {
+        throw new Error('Failed to retrieve receipts.');
+    }
+    return response.json();
+}

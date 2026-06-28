@@ -1,427 +1,324 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  getAdminUsers, 
-  getAdminOrders, 
-  getAdminTransactions, 
+import { useRouter } from "next/navigation";
+import {
   getPerfumes,
-  adminCreatePerfume, 
-  adminUpdatePerfume, 
-  adminDeletePerfume,
-  adminCreateUser,
-  adminUpdateUser,
-  adminDeleteUser 
+  adminCreatePerfume as createPerfume,
+  adminUpdatePerfume as updatePerfume,
+  adminDeletePerfume as deletePerfume,
+  getAdminUsers,
+  adminCreateUser as createAdminUser,
+  adminUpdateUser as updateAdminUser,
+  adminDeleteUser as deleteAdminUser,
+  getAdminTransactions,
+  getAdminOrders,
+  uploadPerfumeImage
 } from "../api";
-import Link from "next/link";
 
-/**
- * AdminDashboard Component.
- * Supports sidebar navigation categorizing Dashboard metrics, Perfume catalog, User management, Orders, and Transactions.
- * Facilitates complete CRUD modal interfaces for Catalog and User datasets.
- */
-export default function AdminDashboard() {
-  // Navigation categories: dashboard, perfumes, orders, users, transactions
-  const [activeTab, setActiveTab] = useState("dashboard");
-
-  // Authorization verification
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [adminEmail, setAdminEmail] = useState("");
-
-  // Datasets
+export default function AdminPage() {
+  const router = useRouter();
+  
+  // Tab control
+  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, catalog, orders, users, transactions
+  
+  // List data states
+  const [perfumes, setPerfumes] = useState([]);
   const [users, setUsers] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [perfumes, setPerfumes] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  
+  // Stats counters
+  const [stats, setStats] = useState({
+    revenueUSD: 0,
+    revenueKES: 0,
+    ordersCount: 0,
+    perfumesCount: 0,
+    usersCount: 0,
+    transactionsCount: 0
+  });
 
-  // UI state managers
+  // Modal control states
+  const [perfumeModal, setPerfumeModal] = useState({ open: false, mode: "add", data: null });
+  const [userModal, setUserModal] = useState({ open: false, mode: "add", data: null });
+
+  // Form states for Perfumes
+  const [perfumeForm, setPerfumeForm] = useState({ name: "", brand: "", price: 0, stockCount: 0, description: "" });
+  
+  // Form states for Users
+  const [userForm, setUserForm] = useState({ email: "", password: "", role: "ROLE_USER" });
+
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
 
-  // CRUD Modals state variables
-  const [perfumeModal, setPerfumeModal] = useState(null); // null, { mode: 'create' } or { mode: 'edit', data: perfume }
-  const [userModal, setUserModal] = useState(null);       // null, { mode: 'create' } or { mode: 'edit', data: user }
-
-  // Perfume Modal form fields
-  const [perfumeName, setPerfumeName] = useState("");
-  const [perfumeBrand, setPerfumeBrand] = useState("");
-  const [perfumePrice, setPerfumePrice] = useState(0.0);
-  const [perfumeStock, setPerfumeStock] = useState(0);
-  const [perfumeDesc, setPerfumeDesc] = useState("");
-
-  // User Modal form fields
-  const [userEmail, setUserEmail] = useState("");
-  const [userRole, setUserRole] = useState("ROLE_CUSTOMER");
-  const [userPassword, setUserPassword] = useState(""); // optional for updates, required for create
-
-  // Check auth privilege on page boot
-  useEffect(() => {
-    const role = localStorage.getItem("role");
-    const email = localStorage.getItem("email");
-    
-    if (role === "ROLE_ADMIN") {
-      setIsAdmin(true);
-      setAdminEmail(email || "Admin");
-      fetchDashboardData();
-    } else {
-      setIsAdmin(false);
-      setIsCheckingAuth(false);
-      setLoading(false);
-    }
-  }, []);
-
-  /**
-   * Fetches all admin datasets concurrently (users, orders, transactions, perfumes).
-   */
+  // Retrieve admin lists
   async function fetchDashboardData() {
     try {
       setLoading(true);
       setErrorMsg("");
-      
-      const [usersData, ordersData, transactionsData, perfumesData] = await Promise.all([
-        getAdminUsers(),
-        getAdminOrders(),
-        getAdminTransactions(),
-        getPerfumes()
-      ]);
-      
-      setUsers(usersData);
-      setOrders(ordersData);
-      setTransactions(transactionsData);
-      setPerfumes(perfumesData);
+
+      // 1. Load Perfumes
+      const perfumesList = await getPerfumes();
+      setPerfumes(perfumesList);
+
+      // 2. Load Users
+      const usersList = await getAdminUsers();
+      setUsers(usersList);
+
+      // 3. Load Orders
+      const ordersList = await getAdminOrders();
+      setOrders(ordersList);
+
+      // 4. Load Transactions
+      const transactionsList = await getAdminTransactions();
+      setTransactions(transactionsList);
+
+      // Calculate stats
+      const totalRevenueKES = ordersList
+        .filter(o => o.status === "COMPLETED")
+        .reduce((sum, o) => sum + (o.amount || 0), 0);
+
+      setStats({
+        revenueKES: totalRevenueKES,
+        ordersCount: ordersList.length,
+        perfumesCount: perfumesList.length,
+        usersCount: usersList.length,
+        transactionsCount: transactionsList.length
+      });
+
     } catch (err) {
-      setErrorMsg(err.message || "Failed to sync management database.");
+      setErrorMsg(err.message || "Failed to load dashboard data.");
       
-      // If endpoint returns 401/403 (unauthorized/admin required), clear state and redirect to login
-      if (err.message && (err.message.includes("Unauthorized") || err.message.includes("Admins only"))) {
+      // Auto-logout redirect on auth exceptions (401/403)
+      if (err.status === 401 || err.status === 403) {
         localStorage.removeItem("token");
         localStorage.removeItem("email");
         localStorage.removeItem("role");
-        setIsAdmin(false);
-        alert("Session expired or unauthorized. Returning to login.");
-        window.location.href = "/";
+        window.dispatchEvent(new Event("local-auth-change"));
+        router.push("/auth");
       }
     } finally {
       setLoading(false);
-      setIsCheckingAuth(false);
     }
   }
 
-  // Calculate high-level totals
-  const totalOrdersCount = orders.length;
-  const completedOrders = orders.filter(o => o.status === "COMPLETED");
-  const totalRevenueUSD = completedOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
-  const totalRevenueKES = totalRevenueUSD * 130;
-  const registeredUsersCount = users.length;
-  const totalPerfumesCount = perfumes.length;
-  const totalTransactionsCount = transactions.length;
+  // Security guard for ROLE_ADMIN
+  useEffect(() => {
+    const savedToken = localStorage.getItem("token");
+    const savedRole = localStorage.getItem("role");
+    
+    if (!savedToken || savedRole !== "ROLE_ADMIN") {
+      router.push("/");
+    } else {
+      fetchDashboardData();
+    }
+  }, [router]);
 
-  // --- CRUD FUNCTIONS FOR PERFUMES ---
+  // --- CRUD ACTION HANDLERS ---
 
-  function openCreatePerfumeModal() {
-    setPerfumeName("");
-    setPerfumeBrand("");
-    setPerfumePrice(49.99);
-    setPerfumeStock(10);
-    setPerfumeDesc("");
-    setPerfumeModal({ mode: "create" });
-  }
-
-  function openEditPerfumeModal(perfume) {
-    setPerfumeName(perfume.name);
-    setPerfumeBrand(perfume.brand);
-    setPerfumePrice(perfume.price);
-    setPerfumeStock(perfume.stockCount);
-    setPerfumeDesc(perfume.description || "");
-    setPerfumeModal({ mode: "edit", data: perfume });
-  }
-
+  // Perfume CRUD Actions
   async function handlePerfumeSubmit(e) {
     e.preventDefault();
-    setErrorMsg("");
-    setSuccessMsg("");
-    
-    const payload = {
-      name: perfumeName,
-      brand: perfumeBrand,
-      price: parseFloat(perfumePrice) || 0.0,
-      stockCount: parseInt(perfumeStock) || 0,
-      description: perfumeDesc
-    };
-
     try {
-      if (perfumeModal.mode === "create") {
-        await adminCreatePerfume(payload);
-        setSuccessMsg(`Perfume "${perfumeName}" added to catalog.`);
+      if (perfumeModal.mode === "add") {
+        await createPerfume(perfumeForm);
       } else {
-        await adminUpdatePerfume(perfumeModal.data.id, payload);
-        setSuccessMsg(`Perfume "${perfumeName}" updated.`);
+        await updatePerfume(perfumeModal.data.id, perfumeForm);
       }
-      setPerfumeModal(null);
+      setPerfumeModal({ open: false, mode: "add", data: null });
       fetchDashboardData();
     } catch (err) {
-      setErrorMsg(err.message || "Failed to process perfume CRUD request.");
+      alert("Error saving perfume: " + err.message);
     }
   }
 
-  async function handlePerfumeDelete(id, name) {
-    if (!confirm(`Are you sure you want to delete perfume "${name}"?`)) return;
-    setErrorMsg("");
-    setSuccessMsg("");
+  async function handlePerfumeDelete(id) {
+    if (confirm("Are you sure you want to delete this perfume?")) {
+      try {
+        await deletePerfume(id);
+        fetchDashboardData();
+      } catch (err) {
+        alert("Error deleting perfume: " + err.message);
+      }
+    }
+  }
+
+  async function handleImageFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
     try {
-      await adminDeletePerfume(id);
-      setSuccessMsg(`Perfume "${name}" deleted.`);
-      fetchDashboardData();
+      const response = await uploadPerfumeImage(file);
+      setPerfumeForm(prev => ({ ...prev, imageUrl: response.imageUrl }));
+      alert("Image uploaded successfully!");
     } catch (err) {
-      setErrorMsg(err.message || "Failed to delete perfume catalog item.");
+      alert("Upload failed: " + err.message);
     }
   }
 
-  // --- CRUD FUNCTIONS FOR USERS ---
-
-  function openCreateUserModal() {
-    setUserEmail("");
-    setUserRole("ROLE_CUSTOMER");
-    setUserPassword("");
-    setUserModal({ mode: "create" });
-  }
-
-  function openEditUserModal(user) {
-    setUserEmail(user.email);
-    setUserRole(user.role);
-    setUserPassword(""); // password optional on update
-    setUserModal({ mode: "edit", data: user });
-  }
-
+  // User CRUD Actions
   async function handleUserSubmit(e) {
     e.preventDefault();
-    setErrorMsg("");
-    setSuccessMsg("");
-
-    const payload = {
-      email: userEmail,
-      role: userRole,
-    };
-
-    if (userPassword && userPassword.trim() !== "") {
-      payload.password = userPassword;
-    }
-
     try {
-      if (userModal.mode === "create") {
-        if (!userPassword) {
-          setErrorMsg("Password is required for new user profiles.");
-          return;
-        }
-        await adminCreateUser(payload);
-        setSuccessMsg(`User "${userEmail}" created successfully.`);
+      if (userModal.mode === "add") {
+        await createAdminUser(userForm);
       } else {
-        await adminUpdateUser(userModal.data.id, payload);
-        setSuccessMsg(`User "${userEmail}" updated.`);
+        await updateAdminUser(userModal.data.id, userForm);
       }
-      setUserModal(null);
+      setUserModal({ open: false, mode: "add", data: null });
       fetchDashboardData();
     } catch (err) {
-      setErrorMsg(err.message || "Failed to process user CRUD request.");
+      alert("Error saving user: " + err.message);
     }
   }
 
-  async function handleUserDelete(id, email) {
-    if (email === adminEmail) {
-      alert("You cannot delete your own administrative account.");
-      return;
-    }
-    if (!confirm(`Are you sure you want to delete user account "${email}"?`)) return;
-    setErrorMsg("");
-    setSuccessMsg("");
-    try {
-      await adminDeleteUser(id);
-      setSuccessMsg(`User account "${email}" deleted.`);
-      fetchDashboardData();
-    } catch (err) {
-      setErrorMsg(err.message || "Failed to delete user account.");
+  async function handleUserDelete(id) {
+    if (confirm("Are you sure you want to delete this account?")) {
+      try {
+        await deleteAdminUser(id);
+        fetchDashboardData();
+      } catch (err) {
+        alert("Error deleting user: " + err.message);
+      }
     }
   }
 
-  // 1. LOADING SCREEN
-  if (isCheckingAuth || (isAdmin && loading && users.length === 0)) {
-    return (
-      <main className="app-container" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "80vh" }}>
-        <div style={{ fontSize: "1.2rem", color: "var(--text-muted)" }}>
-          ⏳ Accessing secure admin console...
-        </div>
-      </main>
-    );
-  }
-
-  // 2. UNAUTHORIZED / ACCESS DENIED SCREEN
-  if (!isAdmin) {
-    return (
-      <main className="app-container">
-        <div className="glass-panel auth-container" style={{ borderColor: "#ff4a4a" }}>
-          <div style={{ fontSize: "3.5rem", color: "#ff4a4a", marginBottom: "1rem" }}>🔒</div>
-          <h1 className="auth-title" style={{ color: "#ff4a4a", background: "none", WebkitTextFillColor: "initial" }}>
-            Access Denied
-          </h1>
-          <p className="auth-subtitle">
-            Admin privileges are required to view this panel.
-          </p>
-          <Link href="/" className="btn-secondary" style={{ display: "inline-block", textDecoration: "none", width: "100%", textAlign: "center", padding: "0.85rem" }}>
-            Return to Storefront
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  // 3. ADMIN PANEL SYSTEM RENDERING (IF PRIVILEGES VERIFIED)
   return (
-    <main className="app-container" style={{ maxWidth: "1400px" }}>
-      {/* Header and User Navigation */}
-      <header className="header" style={{ marginBottom: "2rem" }}>
-        <div className="logo">Scentcepts Admin</div>
-        <div className="nav-user">
-          <span className="user-email" style={{ color: "var(--primary)" }}>👑 {adminEmail} (Admin)</span>
-          <Link href="/" className="btn-secondary" style={{ textDecoration: "none" }}>
-            Storefront
-          </Link>
-        </div>
-      </header>
-
-      {/* Main Title Section */}
-      <div style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+    <div className="container-wide py-12">
+      {/* Title Header */}
+      <div className="mb-12 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 border-b border-border/40 pb-6">
         <div>
-          <h2 style={{ fontSize: "2rem", fontWeight: "600", marginBottom: "0.25rem" }}>Management Console</h2>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.95rem" }}>Overview of system catalog items, users, and transactions</p>
+          <h1 className="text-display-xl mb-2 font-serif text-foreground">Executive Dashboard</h1>
+          <p className="text-body-lg text-muted-foreground">
+            Manage Scentcepts operations and catalog.
+          </p>
         </div>
-        <div style={{ display: "flex", gap: "1rem" }}>
-          <button className="btn-secondary" onClick={fetchDashboardData} disabled={loading}>
-            {loading ? "Syncing..." : "🔄 Sync Data"}
-          </button>
-        </div>
+        <button
+          onClick={fetchDashboardData}
+          className="rounded-none border border-primary bg-transparent text-primary hover:bg-primary hover:text-primary-foreground text-label-caps py-2.5 px-6 cursor-pointer transition-colors font-semibold"
+        >
+          Refresh Data
+        </button>
       </div>
 
-      {errorMsg && <p className="error-message" style={{ marginBottom: "1.5rem" }}>⚠️ {errorMsg}</p>}
-      {successMsg && <p style={{ color: "#4ade80", fontSize: "0.95rem", padding: "0.75rem 1rem", background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)", borderRadius: "8px", marginBottom: "1.5rem" }}>✓ {successMsg}</p>}
+      {errorMsg && (
+        <p className="text-red-500 text-sm mb-6 text-center font-medium">⚠️ {errorMsg}</p>
+      )}
 
-      {/* MAIN TWO-COLUMN LAYOUT: Sidebar (Tabs selector) + Content Area */}
-      <div style={{ display: "flex", gap: "2rem", minHeight: "65vh", flexWrap: "wrap" }}>
-        
-        {/* Sidebar Nav */}
-        <aside style={{ flex: "1 1 240px", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <button 
-            className={`auth-tab ${activeTab === "dashboard" ? "active" : ""}`}
-            style={{ textAlign: "left", padding: "1rem", borderRadius: "12px", width: "100%", display: "flex", alignItems: "center", gap: "0.75rem" }}
-            onClick={() => setActiveTab("dashboard")}
+      {/* Tabs Layout */}
+      <div className="grid w-full grid-cols-2 md:grid-cols-5 rounded-none bg-muted p-1 mb-8">
+        {["dashboard", "catalog", "orders", "users", "transactions"].map((tab) => (
+          <button
+            key={tab}
+            className={`py-3 text-label-caps cursor-pointer border-none font-semibold transition-colors rounded-none capitalize ${
+              activeTab === tab
+                ? "bg-background text-primary"
+                : "bg-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setActiveTab(tab)}
           >
-            📊 Dashboard Overview
+            {tab}
           </button>
-          <button 
-            className={`auth-tab ${activeTab === "perfumes" ? "active" : ""}`}
-            style={{ textAlign: "left", padding: "1rem", borderRadius: "12px", width: "100%", display: "flex", alignItems: "center", gap: "0.75rem" }}
-            onClick={() => setActiveTab("perfumes")}
-          >
-            🛍️ Catalog (Perfumes)
-          </button>
-          <button 
-            className={`auth-tab ${activeTab === "orders" ? "active" : ""}`}
-            style={{ textAlign: "left", padding: "1rem", borderRadius: "12px", width: "100%", display: "flex", alignItems: "center", gap: "0.75rem" }}
-            onClick={() => setActiveTab("orders")}
-          >
-            🛒 Orders List
-          </button>
-          <button 
-            className={`auth-tab ${activeTab === "users" ? "active" : ""}`}
-            style={{ textAlign: "left", padding: "1rem", borderRadius: "12px", width: "100%", display: "flex", alignItems: "center", gap: "0.75rem" }}
-            onClick={() => setActiveTab("users")}
-          >
-            👥 User Accounts
-          </button>
-          <button 
-            className={`auth-tab ${activeTab === "transactions" ? "active" : ""}`}
-            style={{ textAlign: "left", padding: "1rem", borderRadius: "12px", width: "100%", display: "flex", alignItems: "center", gap: "0.75rem" }}
-            onClick={() => setActiveTab("transactions")}
-          >
-            💳 Transactions (M-Pesa)
-          </button>
-        </aside>
+        ))}
+      </div>
 
-        {/* Content Panel */}
-        <div style={{ flex: "3 3 800px", minWidth: "300px" }}>
-          
-          {/* TAB A: DASHBOARD VIEW */}
+      {loading ? (
+        <p className="text-center text-muted-foreground py-24">⏳ Fetching dashboard datasets...</p>
+      ) : (
+        <div>
+          {/* TAB 1: METRICS OVERVIEW */}
           {activeTab === "dashboard" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-              <section className="catalog-grid">
-                <div className="glass-panel perfume-card" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px" }}>Total Revenue</span>
-                  <h3 style={{ fontSize: "2rem", fontWeight: 700 }}>KES {totalRevenueKES.toLocaleString()}</h3>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>${totalRevenueUSD.toLocaleString()} USD cleared</span>
-                </div>
-                <div className="glass-panel perfume-card" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px" }}>Total Orders</span>
-                  <h3 style={{ fontSize: "2rem", fontWeight: 700 }}>{totalOrdersCount}</h3>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>{completedOrders.length} payments cleared</span>
-                </div>
-                <div className="glass-panel perfume-card" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px" }}>Catalog Perfumes</span>
-                  <h3 style={{ fontSize: "2rem", fontWeight: 700 }}>{totalPerfumesCount}</h3>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Active luxury options listed</span>
-                </div>
-              </section>
-
-              <section className="catalog-grid">
-                <div className="glass-panel perfume-card" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px" }}>Registered Users</span>
-                  <h3 style={{ fontSize: "2rem", fontWeight: 700 }}>{registeredUsersCount}</h3>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Customers and Administrators</span>
-                </div>
-                <div className="glass-panel perfume-card" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "1px" }}>M-Pesa Webhooks</span>
-                  <h3 style={{ fontSize: "2rem", fontWeight: 700 }}>{totalTransactionsCount}</h3>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Initiated STK push requests</span>
-                </div>
-              </section>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="border border-border/50 bg-card/50 p-6 rounded-none">
+                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Total Revenue</span>
+                <h3 className="text-headline-lg font-serif text-primary mt-2">KSH {stats.revenueKES.toLocaleString()}</h3>
+                <p className="text-xs text-muted-foreground mt-2">Natively logged in Kenya Shillings</p>
+              </div>
+              <div className="border border-border/50 bg-card/50 p-6 rounded-none">
+                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Orders</span>
+                <h3 className="text-headline-lg font-serif text-foreground mt-2">+{stats.ordersCount}</h3>
+                <p className="text-xs text-primary mt-2">Placed checkouts count</p>
+              </div>
+              <div className="border border-border/50 bg-card/50 p-6 rounded-none">
+                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Catalog Items</span>
+                <h3 className="text-headline-lg font-serif text-foreground mt-2">{stats.perfumesCount}</h3>
+                <p className="text-xs text-muted-foreground mt-2">Active perfumes listed</p>
+              </div>
+              <div className="border border-border/50 bg-card/50 p-6 rounded-none">
+                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Active Users</span>
+                <h3 className="text-headline-lg font-serif text-foreground mt-2">+{stats.usersCount}</h3>
+                <p className="text-xs text-primary mt-2">Registered accounts count</p>
+              </div>
             </div>
           )}
 
-          {/* TAB B: PERFUME CATALOG CRUD */}
-          {activeTab === "perfumes" && (
-            <div className="glass-panel" style={{ padding: "2rem", borderRadius: "20px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-                <h3 style={{ fontSize: "1.4rem", fontWeight: 600, color: "var(--primary)" }}>Perfume Catalog Management</h3>
-                <button className="btn-primary" onClick={openCreatePerfumeModal}>➕ Add Perfume</button>
+          {/* TAB 2: PERFUME CATALOG CRUD */}
+          {activeTab === "catalog" && (
+            <div className="border border-border/50 bg-card/50 p-6 rounded-none relative">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-headline-md text-foreground font-serif">Perfume Catalog</h3>
+                  <p className="text-body-md text-muted-foreground mt-1">Manage Scentcepts fragrance stock.</p>
+                </div>
+                <button
+                  className="rounded-none bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-6 border-none cursor-pointer font-bold transition-colors text-xs tracking-wider"
+                  onClick={() => {
+                    setPerfumeForm({ name: "", brand: "", price: 0, stockCount: 0, description: "", imageUrl: "" });
+                    setPerfumeModal({ open: true, mode: "add", data: null });
+                  }}
+                >
+                  Add Perfume
+                </button>
               </div>
 
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.95rem" }}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-body-md">
                   <thead>
-                    <tr style={{ borderBottom: "1px solid var(--border-color)", color: "var(--text-muted)" }}>
-                      <th style={{ padding: "0.75rem" }}>ID</th>
-                      <th style={{ padding: "0.75rem" }}>Name</th>
-                      <th style={{ padding: "0.75rem" }}>Brand</th>
-                      <th style={{ padding: "0.75rem" }}>Price (USD)</th>
-                      <th style={{ padding: "0.75rem" }}>Stock Level</th>
-                      <th style={{ padding: "0.75rem", textAlign: "right" }}>Actions</th>
+                    <tr className="border-b border-border/50 text-muted-foreground uppercase text-xs tracking-wider">
+                      <th className="py-3 px-4">Image</th>
+                      <th className="py-3 px-4">Name</th>
+                      <th className="py-3 px-4">Brand</th>
+                      <th className="py-3 px-4">Price</th>
+                      <th className="py-3 px-4">Stock</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {perfumes.map((p) => (
-                      <tr key={p.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                        <td style={{ padding: "0.75rem" }}>{p.id}</td>
-                        <td style={{ padding: "0.75rem", fontWeight: 600 }}>{p.name}</td>
-                        <td style={{ padding: "0.75rem" }}>{p.brand}</td>
-                        <td style={{ padding: "0.75rem" }}>${p.price.toFixed(2)}</td>
-                        <td style={{ padding: "0.75rem" }}>
-                          <span className={`stock-tag ${p.stockCount > 0 ? "stock-ok" : "stock-low"}`}>
-                            {p.stockCount} left
-                          </span>
+                    {perfumes.map((perfume) => (
+                      <tr key={perfume.id} className="border-b border-border/30 hover:bg-muted/10">
+                        <td className="py-3 px-4">
+                          <img
+                            src={perfume.imageUrl || "https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800"}
+                            alt={perfume.name}
+                            className="w-10 h-12 object-cover border border-border/40"
+                          />
                         </td>
-                        <td style={{ padding: "0.75rem", textAlign: "right" }}>
-                          <button className="btn-secondary" style={{ padding: "0.25rem 0.5rem", fontSize: "0.8rem", marginRight: "0.5rem" }} onClick={() => openEditPerfumeModal(p)}>Edit</button>
-                          <button className="btn-secondary" style={{ padding: "0.25rem 0.5rem", fontSize: "0.8rem", color: "#ff4a4a", borderColor: "rgba(255,74,74,0.2)" }} onClick={() => handlePerfumeDelete(p.id, p.name)}>Delete</button>
+                        <td className="py-3 px-4 text-foreground font-medium">{perfume.name}</td>
+                        <td className="py-3 px-4 text-muted-foreground">{perfume.brand}</td>
+                        <td className="py-3 px-4 text-primary">KSH {perfume.price.toLocaleString()}</td>
+                        <td className="py-3 px-4 text-foreground">{perfume.stockCount}</td>
+                        <td className="py-3 px-4 text-right flex justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              setPerfumeForm({
+                                name: perfume.name,
+                                brand: perfume.brand,
+                                price: perfume.price,
+                                stockCount: perfume.stockCount,
+                                description: perfume.description,
+                                imageUrl: perfume.imageUrl || ""
+                              });
+                              setPerfumeModal({ open: true, mode: "edit", data: perfume });
+                            }}
+                            className="bg-transparent border border-border text-foreground hover:bg-muted/20 text-xs px-3 py-1 cursor-pointer transition-colors font-semibold"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handlePerfumeDelete(perfume.id)}
+                            className="bg-transparent border border-red-500/50 text-red-500 hover:bg-red-500/10 text-xs px-3 py-1 cursor-pointer transition-colors font-semibold"
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -431,228 +328,351 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* TAB C: ORDERS LOG */}
+          {/* TAB 3: PLACED ORDERS */}
           {activeTab === "orders" && (
-            <div className="glass-panel" style={{ padding: "2rem", borderRadius: "20px", overflowX: "auto" }}>
-              <h3 style={{ fontSize: "1.4rem", fontWeight: 600, marginBottom: "1.5rem", color: "var(--primary)" }}>Customer Order Logs</h3>
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.95rem" }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border-color)", color: "var(--text-muted)" }}>
-                    <th style={{ padding: "0.75rem" }}>Order ID</th>
-                    <th style={{ padding: "0.75rem" }}>Customer Phone</th>
-                    <th style={{ padding: "0.75rem" }}>Quantity</th>
-                    <th style={{ padding: "0.75rem" }}>Amount (USD)</th>
-                    <th style={{ padding: "0.75rem" }}>User ID</th>
-                    <th style={{ padding: "0.75rem" }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((order) => (
-                    <tr key={order.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                      <td style={{ padding: "0.75rem", fontFamily: "monospace", fontSize: "0.85rem" }}>{order.id}</td>
-                      <td style={{ padding: "0.75rem" }}>{order.phone}</td>
-                      <td style={{ padding: "0.75rem" }}>{order.quantity}</td>
-                      <td style={{ padding: "0.75rem" }}>${order.amount.toFixed(2)}</td>
-                      <td style={{ padding: "0.75rem" }}>{order.userId || "Guest"}</td>
-                      <td style={{ padding: "0.75rem" }}>
-                        <span className="stock-tag" style={{
-                          background: order.status === "COMPLETED" ? "rgba(34,197,94,0.1)" : order.status === "FAILED" ? "rgba(239,68,68,0.1)" : "rgba(234,179,8,0.1)",
-                          color: order.status === "COMPLETED" ? "#4ade80" : order.status === "FAILED" ? "#f87171" : "#facc15"
-                        }}>
-                          {order.status}
-                        </span>
-                      </td>
+            <div className="border border-border/50 bg-card/50 p-6 rounded-none">
+              <div className="mb-6">
+                <h3 className="text-headline-md text-foreground font-serif">Customer Orders</h3>
+                <p className="text-body-md text-muted-foreground mt-1">Audit placed checkout records.</p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-body-md">
+                  <thead>
+                    <tr className="border-b border-border/50 text-muted-foreground uppercase text-xs tracking-wider">
+                      <th className="py-3 px-4">Order ID</th>
+                      <th className="py-3 px-4">Phone</th>
+                      <th className="py-3 px-4">User ID</th>
+                      <th className="py-3 px-4">Amount</th>
+                      <th className="py-3 px-4">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {orders.map((order) => (
+                      <tr key={order.id} className="border-b border-border/30 hover:bg-muted/10">
+                        <td className="py-3 px-4 text-foreground font-medium">#{order.id}</td>
+                        <td className="py-3 px-4 text-muted-foreground">{order.phone}</td>
+                        <td className="py-3 px-4 text-muted-foreground">{order.userId || "GUEST"}</td>
+                        <td className="py-3 px-4 text-primary">KSH {(order.amount || 0).toLocaleString()}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none ${
+                            order.status === "COMPLETED"
+                              ? "bg-green-500/10 text-green-500"
+                              : order.status === "FAILED"
+                              ? "bg-red-500/10 text-red-500"
+                              : "bg-yellow-500/10 text-yellow-500"
+                          }`}>
+                            {order.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {orders.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="py-8 text-center text-muted-foreground">No orders logged in database.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
-          {/* TAB D: SYSTEM USERS CRUD */}
+          {/* TAB 4: USER ACCOUNTS CRUD */}
           {activeTab === "users" && (
-            <div className="glass-panel" style={{ padding: "2rem", borderRadius: "20px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-                <h3 style={{ fontSize: "1.4rem", fontWeight: 600, color: "var(--primary)" }}>Registered Accounts Management</h3>
-                <button className="btn-primary" onClick={openCreateUserModal}>➕ Add Account</button>
+            <div className="border border-border/50 bg-card/50 p-6 rounded-none">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-headline-md text-foreground font-serif">Users Directory</h3>
+                  <p className="text-body-md text-muted-foreground mt-1">Configure account access roles.</p>
+                </div>
+                <button
+                  className="rounded-none bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-6 border-none cursor-pointer font-bold transition-colors text-xs tracking-wider"
+                  onClick={() => {
+                    setUserForm({ email: "", password: "", role: "ROLE_USER" });
+                    setUserModal({ open: true, mode: "add", data: null });
+                  }}
+                >
+                  Add User
+                </button>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.5rem" }}>
-                {users.map((u) => (
-                  <div key={u.id} style={{
-                    background: "rgba(255,255,255,0.01)",
-                    padding: "1.25rem",
-                    borderRadius: "16px",
-                    border: "1px solid var(--border-color)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.75rem"
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Account ID: {u.id}</span>
-                      <span className="stock-tag" style={{
-                        background: u.role === "ROLE_ADMIN" ? "rgba(168,85,247,0.15)" : "rgba(255,255,255,0.05)",
-                        color: u.role === "ROLE_ADMIN" ? "#c084fc" : "var(--text-muted)"
-                      }}>
-                        {u.role.replace("ROLE_", "")}
-                      </span>
-                    </div>
-
-                    <div style={{ fontWeight: 600, fontSize: "1rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {u.email}
-                    </div>
-
-                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
-                      <button className="btn-secondary" style={{ flex: 1, padding: "0.35rem", fontSize: "0.8rem" }} onClick={() => openEditUserModal(u)}>Edit</button>
-                      <button className="btn-secondary" style={{ flex: 1, padding: "0.35rem", fontSize: "0.8rem", color: "#ff4a4a", borderColor: "rgba(255,74,74,0.1)" }} onClick={() => handleUserDelete(u.id, u.email)}>Delete</button>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-body-md">
+                  <thead>
+                    <tr className="border-b border-border/50 text-muted-foreground uppercase text-xs tracking-wider">
+                      <th className="py-3 px-4">ID</th>
+                      <th className="py-3 px-4">Email Address</th>
+                      <th className="py-3 px-4">Access Role</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id} className="border-b border-border/30 hover:bg-muted/10">
+                        <td className="py-3 px-4 text-muted-foreground">#{u.id}</td>
+                        <td className="py-3 px-4 text-foreground font-medium">{u.email}</td>
+                        <td className="py-3 px-4 text-primary">{u.role}</td>
+                        <td className="py-3 px-4 text-right flex justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              setUserForm({ email: u.email, password: "", role: u.role });
+                              setUserModal({ open: true, mode: "edit", data: u });
+                            }}
+                            className="bg-transparent border border-border text-foreground hover:bg-muted/20 text-xs px-3 py-1 cursor-pointer transition-colors font-semibold"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleUserDelete(u.id)}
+                            className="bg-transparent border border-red-500/50 text-red-500 hover:bg-red-500/10 text-xs px-3 py-1 cursor-pointer transition-colors font-semibold"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
 
-          {/* TAB E: PAYMENT TRANSACTIONS LOG */}
+          {/* TAB 5: WEBHOOK TRANSACTIONS LOGS */}
           {activeTab === "transactions" && (
-            <div className="glass-panel" style={{ padding: "2rem", borderRadius: "20px", overflowX: "auto" }}>
-              <h3 style={{ fontSize: "1.4rem", fontWeight: 600, marginBottom: "1.5rem", color: "var(--primary)" }}>M-Pesa Gateway Payment Transactions</h3>
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.95rem" }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border-color)", color: "var(--text-muted)" }}>
-                    <th style={{ padding: "0.75rem" }}>ID</th>
-                    <th style={{ padding: "0.75rem" }}>Checkout Request ID</th>
-                    <th style={{ padding: "0.75rem" }}>Order ID</th>
-                    <th style={{ padding: "0.75rem" }}>Perfume ID</th>
-                    <th style={{ padding: "0.75rem" }}>Qty</th>
-                    <th style={{ padding: "0.75rem" }}>Customer ID</th>
-                    <th style={{ padding: "0.75rem" }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((tx) => (
-                    <tr key={tx.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                      <td style={{ padding: "0.75rem" }}>{tx.id}</td>
-                      <td style={{ padding: "0.75rem", fontFamily: "monospace", fontSize: "0.85rem" }}>{tx.checkoutRequestId}</td>
-                      <td style={{ padding: "0.75rem", fontFamily: "monospace", fontSize: "0.85rem" }}>{tx.orderId}</td>
-                      <td style={{ padding: "0.75rem" }}>{tx.perfumeId}</td>
-                      <td style={{ padding: "0.75rem", textAlign: "center" }}>{tx.quantity}</td>
-                      <td style={{ padding: "0.75rem", textAlign: "center" }}>{tx.userId || "N/A"}</td>
-                      <td style={{ padding: "0.75rem" }}>
-                        <span className="stock-tag" style={{
-                          background: tx.status === "COMPLETED" ? "rgba(34,197,94,0.1)" : tx.status === "FAILED" ? "rgba(239,68,68,0.1)" : "rgba(234,179,8,0.1)",
-                          color: tx.status === "COMPLETED" ? "#4ade80" : tx.status === "FAILED" ? "#f87171" : "#facc15"
-                        }}>
-                          {tx.status}
-                        </span>
-                      </td>
+            <div className="border border-border/50 bg-card/50 p-6 rounded-none">
+              <div className="mb-6">
+                <h3 className="text-headline-md text-foreground font-serif">M-Pesa STK Transactions</h3>
+                <p className="text-body-md text-muted-foreground mt-1">Audit raw payment callback records.</p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-body-md">
+                  <thead>
+                    <tr className="border-b border-border/50 text-muted-foreground uppercase text-xs tracking-wider">
+                      <th className="py-3 px-4">Trans ID</th>
+                      <th className="py-3 px-4">Checkout Request ID</th>
+                      <th className="py-3 px-4">Order ID</th>
+                      <th className="py-3 px-4">User ID</th>
+                      <th className="py-3 px-4">Status</th>
                     </tr>
-                  ))}
-                  {transactions.length === 0 && (
-                    <tr>
-                      <td colSpan="7" style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
-                        No payment transactions logs found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {transactions.map((tx) => (
+                      <tr key={tx.id} className="border-b border-border/30 hover:bg-muted/10">
+                        <td className="py-3 px-4 text-primary font-medium">#{tx.id}</td>
+                        <td className="py-3 px-4 text-muted-foreground text-xs">{tx.checkoutRequestId}</td>
+                        <td className="py-3 px-4 text-foreground font-mono text-xs">{tx.orderId}</td>
+                        <td className="py-3 px-4 text-foreground">{tx.userId || "GUEST"}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none ${
+                            tx.status === "COMPLETED"
+                              ? "bg-green-500/10 text-green-500"
+                              : tx.status === "FAILED"
+                              ? "bg-red-500/10 text-red-500"
+                              : "bg-yellow-500/10 text-yellow-500"
+                          }`}>
+                            {tx.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {transactions.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="py-8 text-center text-muted-foreground">No webhook callback transactions recorded.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
-
         </div>
-      </div>
+      )}
 
       {/* --- CRUD MODAL OVERLAYS --- */}
 
-      {/* 1. PERFUME CRUD MODAL */}
-      {perfumeModal && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-content" style={{ maxWidth: "550px" }}>
-            <h3 style={{ fontSize: "1.3rem", fontWeight: 600, marginBottom: "1.25rem", color: "var(--primary)" }}>
-              {perfumeModal.mode === "create" ? "➕ Add Perfume to Catalog" : "✏️ Edit Perfume Catalog Details"}
-            </h3>
+      {/* A. PERFUME FORM MODAL */}
+      {perfumeModal.open && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="border border-border/50 bg-card p-8 max-w-lg w-full relative">
+            <div className="mb-6 flex justify-between items-center">
+              <h3 className="text-headline-md font-serif text-foreground">
+                {perfumeModal.mode === "add" ? "Create Fragrance" : "Update Fragrance"}
+              </h3>
+              <button
+                className="bg-transparent border-none text-muted-foreground hover:text-foreground cursor-pointer text-lg font-bold"
+                onClick={() => setPerfumeModal({ open: false, mode: "add", data: null })}
+              >
+                ✕
+              </button>
+            </div>
 
-            <form onSubmit={handlePerfumeSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <div className="form-group">
-                <label className="form-label">Perfume Name</label>
-                <input type="text" className="form-input" value={perfumeName} onChange={(e) => setPerfumeName(e.target.value)} required />
+            <form onSubmit={handlePerfumeSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Perfume Name</label>
+                <input
+                  type="text"
+                  required
+                  value={perfumeForm.name}
+                  onChange={(e) => setPerfumeForm({ ...perfumeForm, name: e.target.value })}
+                  className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                />
               </div>
-
-              <div className="form-group">
-                <label className="form-label">Brand</label>
-                <input type="text" className="form-input" value={perfumeBrand} onChange={(e) => setPerfumeBrand(e.target.value)} required />
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Brand/House</label>
+                <input
+                  type="text"
+                  required
+                  value={perfumeForm.brand}
+                  onChange={(e) => setPerfumeForm({ ...perfumeForm, brand: e.target.value })}
+                  className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                />
               </div>
-
-              <div style={{ display: "flex", gap: "1rem" }}>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Price (USD)</label>
-                  <input type="number" step="0.01" className="form-input" value={perfumePrice} onChange={(e) => setPerfumePrice(e.target.value)} required />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">Price (KSH)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={perfumeForm.price}
+                    onChange={(e) => setPerfumeForm({ ...perfumeForm, price: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                  />
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Stock Count</label>
-                  <input type="number" className="form-input" value={perfumeStock} onChange={(e) => setPerfumeStock(e.target.value)} required />
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">Stock Count</label>
+                  <input
+                    type="number"
+                    required
+                    value={perfumeForm.stockCount}
+                    onChange={(e) => setPerfumeForm({ ...perfumeForm, stockCount: parseInt(e.target.value) || 0 })}
+                    className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                  />
                 </div>
               </div>
-
-              <div className="form-group">
-                <label className="form-label">Description</label>
-                <textarea className="form-input" style={{ minHeight: "80px", resize: "vertical" }} value={perfumeDesc} onChange={(e) => setPerfumeDesc(e.target.value)} required />
-              </div>
-
-              <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
-                <button type="button" className="btn-secondary" style={{ flex: 1 }} onClick={() => setPerfumeModal(null)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1.5 }}>Save Perfume</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 2. USER CRUD MODAL */}
-      {userModal && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-content" style={{ maxWidth: "450px" }}>
-            <h3 style={{ fontSize: "1.3rem", fontWeight: 600, marginBottom: "1.25rem", color: "var(--primary)" }}>
-              {userModal.mode === "create" ? "➕ Register User Profile" : "✏️ Edit Account Credentials"}
-            </h3>
-
-            <form onSubmit={handleUserSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input type="email" className="form-input" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} required />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Role Authority</label>
-                <select className="form-input" style={{ background: "var(--bg-input)" }} value={userRole} onChange={(e) => setUserRole(e.target.value)}>
-                  <option value="ROLE_CUSTOMER">CUSTOMER</option>
-                  <option value="ROLE_ADMIN">ADMIN</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">
-                  Password {userModal.mode === "edit" && <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>(Leave blank to keep current)</span>}
-                </label>
-                <input 
-                  type="password" 
-                  className="form-input" 
-                  placeholder={userModal.mode === "edit" ? "••••••••" : "Enter password"} 
-                  value={userPassword} 
-                  onChange={(e) => setUserPassword(e.target.value)} 
-                  required={userModal.mode === "create"} 
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Fragrance Description</label>
+                <textarea
+                  required
+                  rows="3"
+                  value={perfumeForm.description}
+                  onChange={(e) => setPerfumeForm({ ...perfumeForm, description: e.target.value })}
+                  className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
                 />
               </div>
 
-              <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
-                <button type="button" className="btn-secondary" style={{ flex: 1 }} onClick={() => setUserModal(null)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1.5 }}>Save Account</button>
+              {/* Dynamic Image Inputs (Dual Option) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-border/40 p-4 bg-muted/20">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase text-primary block mb-1">Option A: Upload Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageFileUpload}
+                    className="w-full text-xs text-muted-foreground file:bg-primary file:border-none file:text-primary-foreground file:px-3 file:py-1.5 file:cursor-pointer file:font-semibold hover:file:bg-primary/90 file:rounded-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase text-primary block mb-1">Option B: Image Web Link</label>
+                  <input
+                    type="text"
+                    placeholder="https://images.unsplash.com/..."
+                    value={perfumeForm.imageUrl || ""}
+                    onChange={(e) => setPerfumeForm({ ...perfumeForm, imageUrl: e.target.value })}
+                    className="w-full bg-background border border-border/50 text-foreground px-2 py-1.5 rounded-none outline-none focus:border-primary text-xs"
+                  />
+                </div>
               </div>
+              {perfumeForm.imageUrl && (
+                <div className="flex items-center gap-4 border border-border/30 p-2 bg-muted/10">
+                  <img
+                    src={perfumeForm.imageUrl}
+                    alt="Preview"
+                    className="w-12 h-14 object-cover border border-border/40"
+                  />
+                  <div className="overflow-hidden">
+                    <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Image URL Preview:</span>
+                    <span className="text-[11px] text-foreground truncate block">{perfumeForm.imageUrl}</span>
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full rounded-none bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-label-caps border-none cursor-pointer font-bold transition-colors mt-4"
+              >
+                {perfumeModal.mode === "add" ? "Save Perfume" : "Update Perfume"}
+              </button>
             </form>
           </div>
         </div>
       )}
 
-    </main>
+      {/* B. USER FORM MODAL */}
+      {userModal.open && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="border border-border/50 bg-card p-8 max-w-md w-full relative">
+            <div className="mb-6 flex justify-between items-center">
+              <h3 className="text-headline-md font-serif text-foreground">
+                {userModal.mode === "add" ? "Create Account" : "Update Account"}
+              </h3>
+              <button
+                className="bg-transparent border-none text-muted-foreground hover:text-foreground cursor-pointer text-lg font-bold"
+                onClick={() => setUserModal({ open: false, mode: "add", data: null })}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUserSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={userForm.email}
+                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                  className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                  Password {userModal.mode === "edit" && "(Leave blank to keep current)"}
+                </label>
+                <input
+                  type="password"
+                  required={userModal.mode === "add"}
+                  placeholder={userModal.mode === "edit" ? "••••••••" : ""}
+                  value={userForm.password}
+                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                  className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground block mb-1">Access Role</label>
+                <select
+                  value={userForm.role}
+                  onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
+                  className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md h-10"
+                >
+                  <option value="ROLE_USER">Customer (ROLE_USER)</option>
+                  <option value="ROLE_ADMIN">Administrator (ROLE_ADMIN)</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full rounded-none bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-label-caps border-none cursor-pointer font-bold transition-colors mt-4"
+              >
+                {userModal.mode === "add" ? "Save Account" : "Update Account"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
   );
 }
