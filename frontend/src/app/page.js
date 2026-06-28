@@ -101,30 +101,7 @@ export default function LandingPage() {
         )}
       </section>
 
-      {/* Editorial Banner */}
-      <section className="section-gap bg-muted/30 py-24 relative overflow-hidden border-y border-border/40">
-        <div className="container-wide grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
-          <div>
-            <h2 className="text-display-xl mb-6 font-serif">Artistry in Every Drop</h2>
-            <p className="text-body-lg text-muted-foreground mb-8">
-              Our master perfumers blend rare botanicals and synthetic
-              innovations to create olfactory masterpieces that linger in the
-              memory long after you've left the room.
-            </p>
-            <button className="bg-transparent rounded-none border border-foreground text-foreground hover:bg-foreground hover:text-background text-label-caps h-12 px-8 font-semibold cursor-pointer transition-colors">
-              Read Our Story
-            </button>
-          </div>
-          <div className="aspect-square relative">
-            <img
-              src="https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&q=80&w=1000"
-              alt="Perfume Ingredients"
-              className="w-full h-full object-cover grayscale"
-            />
-            <div className="absolute inset-0 border-2 border-primary m-4 pointer-events-none"></div>
-          </div>
-        </div>
-      </section>
+
     </div>
   );
 }
