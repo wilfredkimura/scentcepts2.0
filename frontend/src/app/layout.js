@@ -1,4 +1,5 @@
 import "./globals.css";
+import Navbar from "./Navbar";
 
 export const metadata = {
   title: "Scentcepts 2.0 | Premium Perfumes & M-Pesa Checkout",
@@ -9,7 +10,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        {children}
+        <div className="app-container">
+          <Navbar />
+          {children}
+        </div>
       </body>
     </html>
   );
