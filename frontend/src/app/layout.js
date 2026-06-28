@@ -26,56 +26,36 @@ export default function RootLayout({ children }) {
 
           {/* Footer */}
           <footer className="border-t border-border/40 bg-background py-12 relative z-10">
-            <div className="container-wide grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="container-wide grid grid-cols-1 md:grid-cols-3 gap-12">
               <div>
                 <h3 className="text-headline-md mb-4 font-serif">SCENTCEPTS</h3>
-                <p className="text-body-md text-muted-foreground">
+                <p className="text-body-md text-muted-foreground leading-relaxed">
                   Modern Noir & Champagne Gold. A high-fashion, editorial-style fragrance boutique.
                 </p>
               </div>
               <div>
-                <h4 className="text-label-caps mb-4">Explore</h4>
+                <h4 className="text-label-caps mb-4">Directory</h4>
                 <ul className="space-y-2 text-body-md text-muted-foreground list-none p-0">
                   <li>
-                    <Link href="/catalog" className="hover:text-primary transition-colors no-underline text-muted-foreground">
-                      All Fragrances
+                    <Link href="/" className="hover:text-primary transition-colors no-underline text-muted-foreground">
+                      Home
                     </Link>
                   </li>
                   <li>
                     <Link href="/catalog" className="hover:text-primary transition-colors no-underline text-muted-foreground">
-                      New Arrivals
+                      Catalog
                     </Link>
                   </li>
                   <li>
-                    <Link href="/catalog" className="hover:text-primary transition-colors no-underline text-muted-foreground">
-                      Bestsellers
+                    <Link href="/auth" className="hover:text-primary transition-colors no-underline text-muted-foreground">
+                      Account / Sign In
                     </Link>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="text-label-caps mb-4">Client Care</h4>
-                <ul className="space-y-2 text-body-md text-muted-foreground list-none p-0">
-                  <li>
-                    <a href="#" className="hover:text-primary transition-colors no-underline text-muted-foreground">
-                      Contact Us
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-primary transition-colors no-underline text-muted-foreground">
-                      Shipping & Returns
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:text-primary transition-colors no-underline text-muted-foreground">
-                      FAQ
-                    </a>
                   </li>
                 </ul>
               </div>
               <div>
                 <h4 className="text-label-caps mb-4">Newsletter</h4>
-                <p className="text-body-md text-muted-foreground mb-4">
+                <p className="text-body-md text-muted-foreground mb-4 leading-relaxed">
                   Subscribe to receive updates, access to exclusive deals, and more.
                 </p>
                 <div className="flex gap-2">
