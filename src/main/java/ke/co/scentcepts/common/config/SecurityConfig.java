@@ -60,6 +60,7 @@ public class SecurityConfig {
                         
                         // Publicly accessible endpoints
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/perfumes/**").permitAll()
                         .requestMatchers("/api/payments/callback").permitAll()
                         

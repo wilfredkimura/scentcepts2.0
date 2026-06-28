@@ -48,37 +48,41 @@ public class CatalogDataInitializer implements CommandLineRunner {
         if (count == 0) {
             System.out.println("Catalog Data Initializer: Database is empty. Seeding sample perfumes...");
 
-            // Create initial perfume instances with name, brand, price, stock count, and description details
+            // Create initial perfume instances with name, brand, price, stock count, description, and image URL
             Perfume p1 = new Perfume(
                     "Chanel No. 5", 
                     "Chanel", 
-                    new BigDecimal("150.00"), 
+                    new BigDecimal("19500.00"), 
                     50, 
-                    "A legendary floral fragrance with notes of aldehydes, jasmine, and rose."
+                    "A legendary floral fragrance with notes of aldehydes, jasmine, and rose.",
+                    "https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&q=80&w=800"
             );
 
             Perfume p2 = new Perfume(
                     "Sauvage", 
                     "Dior", 
-                    new BigDecimal("120.00"), 
+                    new BigDecimal("15600.00"), 
                     100, 
-                    "A radically fresh composition, raw and noble all at once, with calabrian bergamot and amberwood."
+                    "A radically fresh composition, raw and noble all at once, with calabrian bergamot and amberwood.",
+                    "https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800"
             );
 
             Perfume p3 = new Perfume(
                     "Bleu de Chanel", 
                     "Chanel", 
-                    new BigDecimal("130.00"), 
+                    new BigDecimal("16900.00"), 
                     75, 
-                    "An aromatic-woody fragrance that unites the invigorating freshness of citrus with the woody whisper of cedar."
+                    "An aromatic-woody fragrance that unites the invigorating freshness of citrus with the woody whisper of cedar.",
+                    "https://images.unsplash.com/photo-1588405748880-12d1d2a59f75?auto=format&fit=crop&q=80&w=800"
             );
 
             Perfume p4 = new Perfume(
                     "Black Opium", 
                     "Yves Saint Laurent", 
-                    new BigDecimal("140.00"), 
+                    new BigDecimal("18200.00"), 
                     60, 
-                    "A seductive, warm and spicy fragrance highlighting notes of rich black coffee, vanilla, and sweet white flowers."
+                    "A seductive, warm and spicy fragrance highlighting notes of rich black coffee, vanilla, and sweet white flowers.",
+                    "https://images.unsplash.com/photo-1595425970377-c9703c48657a?auto=format&fit=crop&q=80&w=800"
             );
 
             // Batch save all configured records to the Postgres database

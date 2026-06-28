@@ -80,8 +80,7 @@ export default function ProductDetailPage({ params }) {
   };
 
   const unitPrice = getUnitPrice();
-  const totalPriceUSD = unitPrice * quantity;
-  const totalPriceKES = totalPriceUSD * 130;
+  const totalPriceKES = unitPrice * quantity;
 
   // Submit payment order
   async function handleOrderSubmit(e) {
@@ -104,7 +103,7 @@ export default function ProductDetailPage({ params }) {
     try {
       const response = await checkout(
         phone,
-        totalPriceUSD,
+        totalPriceKES,
         perfume.id,
         quantity
       );
@@ -171,7 +170,7 @@ export default function ProductDetailPage({ params }) {
         <div className="space-y-4">
           <div className="aspect-fashion overflow-hidden bg-muted">
             <img
-              src="https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=1200"
+              src={perfume.imageUrl || "https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=1200"}
               alt={perfume.name}
               className="w-full h-full object-cover img-awaken"
             />
@@ -185,7 +184,7 @@ export default function ProductDetailPage({ params }) {
             <p className="text-body-lg text-muted-foreground mb-6">
               {perfume.brand} Exclusive
             </p>
-            <p className="text-headline-lg font-medium text-primary">${unitPrice.toFixed(2)}</p>
+            <p className="text-headline-lg font-medium text-primary">KSH {unitPrice.toLocaleString()}</p>
           </div>
 
           <div className="mb-8">

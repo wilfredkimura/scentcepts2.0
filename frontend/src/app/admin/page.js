@@ -12,7 +12,8 @@ import {
   adminUpdateUser as updateAdminUser,
   adminDeleteUser as deleteAdminUser,
   getAdminTransactions,
-  getAdminOrders
+  getAdminOrders,
+  uploadPerfumeImage
 } from "../api";
 
 export default function AdminPage() {
@@ -73,14 +74,11 @@ export default function AdminPage() {
       setTransactions(transactionsList);
 
       // Calculate stats
-      const totalRevenueUSD = ordersList
+      const totalRevenueKES = ordersList
         .filter(o => o.status === "COMPLETED")
-        .reduce((sum, o) => sum + o.totalAmount, 0);
-
-      const totalRevenueKES = totalRevenueUSD * 130;
+        .reduce((sum, o) => sum + (o.amount || 0), 0);
 
       setStats({
-        revenueUSD: totalRevenueUSD,
         revenueKES: totalRevenueKES,
         ordersCount: ordersList.length,
         perfumesCount: perfumesList.length,
@@ -142,6 +140,18 @@ export default function AdminPage() {
       } catch (err) {
         alert("Error deleting perfume: " + err.message);
       }
+    }
+  }
+
+  async function handleImageFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const response = await uploadPerfumeImage(file);
+      setPerfumeForm(prev => ({ ...prev, imageUrl: response.imageUrl }));
+      alert("Image uploaded successfully!");
+    } catch (err) {
+      alert("Upload failed: " + err.message);
     }
   }
 
@@ -219,9 +229,9 @@ export default function AdminPage() {
           {activeTab === "dashboard" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="border border-border/50 bg-card/50 p-6 rounded-none">
-                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Total Revenue (KES)</span>
-                <h3 className="text-headline-lg font-serif text-primary mt-2">KES {stats.revenueKES.toLocaleString()}</h3>
-                <p className="text-xs text-muted-foreground mt-2">Total USD: ${stats.revenueUSD.toFixed(2)}</p>
+                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Total Revenue</span>
+                <h3 className="text-headline-lg font-serif text-primary mt-2">KSH {stats.revenueKES.toLocaleString()}</h3>
+                <p className="text-xs text-muted-foreground mt-2">Natively logged in Kenya Shillings</p>
               </div>
               <div className="border border-border/50 bg-card/50 p-6 rounded-none">
                 <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Orders</span>
@@ -252,7 +262,7 @@ export default function AdminPage() {
                 <button
                   className="rounded-none bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-6 border-none cursor-pointer font-bold transition-colors text-xs tracking-wider"
                   onClick={() => {
-                    setPerfumeForm({ name: "", brand: "", price: 0, stockCount: 0, description: "" });
+                    setPerfumeForm({ name: "", brand: "", price: 0, stockCount: 0, description: "", imageUrl: "" });
                     setPerfumeModal({ open: true, mode: "add", data: null });
                   }}
                 >
@@ -264,6 +274,7 @@ export default function AdminPage() {
                 <table className="w-full text-left border-collapse text-body-md">
                   <thead>
                     <tr className="border-b border-border/50 text-muted-foreground uppercase text-xs tracking-wider">
+                      <th className="py-3 px-4">Image</th>
                       <th className="py-3 px-4">Name</th>
                       <th className="py-3 px-4">Brand</th>
                       <th className="py-3 px-4">Price</th>
@@ -274,9 +285,16 @@ export default function AdminPage() {
                   <tbody>
                     {perfumes.map((perfume) => (
                       <tr key={perfume.id} className="border-b border-border/30 hover:bg-muted/10">
+                        <td className="py-3 px-4">
+                          <img
+                            src={perfume.imageUrl || "https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800"}
+                            alt={perfume.name}
+                            className="w-10 h-12 object-cover border border-border/40"
+                          />
+                        </td>
                         <td className="py-3 px-4 text-foreground font-medium">{perfume.name}</td>
                         <td className="py-3 px-4 text-muted-foreground">{perfume.brand}</td>
-                        <td className="py-3 px-4 text-primary">${perfume.price.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-primary">KSH {perfume.price.toLocaleString()}</td>
                         <td className="py-3 px-4 text-foreground">{perfume.stockCount}</td>
                         <td className="py-3 px-4 text-right flex justify-end gap-2">
                           <button
@@ -286,7 +304,8 @@ export default function AdminPage() {
                                 brand: perfume.brand,
                                 price: perfume.price,
                                 stockCount: perfume.stockCount,
-                                description: perfume.description
+                                description: perfume.description,
+                                imageUrl: perfume.imageUrl || ""
                               });
                               setPerfumeModal({ open: true, mode: "edit", data: perfume });
                             }}
@@ -332,9 +351,9 @@ export default function AdminPage() {
                     {orders.map((order) => (
                       <tr key={order.id} className="border-b border-border/30 hover:bg-muted/10">
                         <td className="py-3 px-4 text-foreground font-medium">#{order.id}</td>
-                        <td className="py-3 px-4 text-muted-foreground">{order.phoneNumber}</td>
+                        <td className="py-3 px-4 text-muted-foreground">{order.phone}</td>
                         <td className="py-3 px-4 text-muted-foreground">{order.userId || "GUEST"}</td>
-                        <td className="py-3 px-4 text-primary">${order.totalAmount.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-primary">KSH {(order.amount || 0).toLocaleString()}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none ${
                             order.status === "COMPLETED"
@@ -502,7 +521,7 @@ export default function AdminPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">Price (USD)</label>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">Price (KSH)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -533,6 +552,42 @@ export default function AdminPage() {
                   className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
                 />
               </div>
+
+              {/* Dynamic Image Inputs (Dual Option) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-border/40 p-4 bg-muted/20">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase text-primary block mb-1">Option A: Upload Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageFileUpload}
+                    className="w-full text-xs text-muted-foreground file:bg-primary file:border-none file:text-primary-foreground file:px-3 file:py-1.5 file:cursor-pointer file:font-semibold hover:file:bg-primary/90 file:rounded-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold uppercase text-primary block mb-1">Option B: Image Web Link</label>
+                  <input
+                    type="text"
+                    placeholder="https://images.unsplash.com/..."
+                    value={perfumeForm.imageUrl || ""}
+                    onChange={(e) => setPerfumeForm({ ...perfumeForm, imageUrl: e.target.value })}
+                    className="w-full bg-background border border-border/50 text-foreground px-2 py-1.5 rounded-none outline-none focus:border-primary text-xs"
+                  />
+                </div>
+              </div>
+              {perfumeForm.imageUrl && (
+                <div className="flex items-center gap-4 border border-border/30 p-2 bg-muted/10">
+                  <img
+                    src={perfumeForm.imageUrl}
+                    alt="Preview"
+                    className="w-12 h-14 object-cover border border-border/40"
+                  />
+                  <div className="overflow-hidden">
+                    <span className="text-[10px] text-muted-foreground block uppercase font-semibold">Image URL Preview:</span>
+                    <span className="text-[11px] text-foreground truncate block">{perfumeForm.imageUrl}</span>
+                  </div>
+                </div>
+              )}
 
               <button
                 type="submit"

@@ -80,7 +80,7 @@ export default function LandingPage() {
               <Link href={`/catalog/${perfume.id}`} key={perfume.id} className="group block no-underline text-foreground">
                 <div className="aspect-fashion overflow-hidden bg-muted relative mb-6">
                   <img
-                    src="https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800"
+                    src={perfume.imageUrl || "https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800"}
                     alt={perfume.name}
                     className="w-full h-full object-cover img-awaken group-hover:scale-105 transition-transform duration-700"
                   />
@@ -94,7 +94,7 @@ export default function LandingPage() {
                 <p className="text-body-md text-muted-foreground mb-4">
                   {perfume.brand}
                 </p>
-                <p className="text-body-lg font-medium text-primary">${perfume.price.toFixed(2)}</p>
+                <p className="text-body-lg font-medium text-primary">KSH {perfume.price.toLocaleString()}</p>
               </Link>
             ))}
           </div>

@@ -116,7 +116,7 @@ export default function CatalogPage() {
                 >
                   <div className="aspect-fashion overflow-hidden bg-muted relative mb-6">
                     <img
-                      src="https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800"
+                      src={perfume.imageUrl || "https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800"}
                       alt={perfume.name}
                       className="w-full h-full object-cover img-awaken group-hover:scale-105 transition-transform duration-700"
                     />
@@ -131,7 +131,7 @@ export default function CatalogPage() {
                       {perfume.name}
                     </h3>
                     <span className="text-body-lg font-medium text-primary">
-                      ${perfume.price.toFixed(2)}
+                      KSH {perfume.price.toLocaleString()}
                     </span>
                   </div>
                   <p className="text-body-md text-muted-foreground">
