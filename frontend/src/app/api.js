@@ -3,7 +3,7 @@
  * Provides functions for user authentication, catalog retrieval, and order checkout.
  */
 
-const BASE_URL = 'http://localhost:8080/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 /**
  * Helper function to retrieve headers, automatically adding the JWT token if present.
