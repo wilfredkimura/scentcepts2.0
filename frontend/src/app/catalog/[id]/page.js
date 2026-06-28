@@ -3,13 +3,10 @@
 import { useState, useEffect } from "react";
 import { getPerfumeById, checkout, getOrderStatus } from "../../api";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-/**
- * ProductDetailPage Component.
- * Handles dynamic route `/catalog/[id]` showing detailed olfactory descriptions,
- * sizing selection (Full size vs decants), and secure M-Pesa STK checkouts.
- */
 export default function ProductDetailPage({ params }) {
+  const router = useRouter();
   const perfumeId = params.id;
 
   // Authentication status
@@ -21,13 +18,13 @@ export default function ProductDetailPage({ params }) {
   const [quantity, setQuantity] = useState(1);
   const [phone, setPhone] = useState("2547");
 
-  // Flow control states
+  // Control states
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState(null);
-  const [paymentStatus, setPaymentStatus] = useState(null); // PENDING, COMPLETED, FAILED
+  const [paymentStatus, setPaymentStatus] = useState("idle"); // idle, processing, success, failed
 
   // Check auth and load product details
   useEffect(() => {
@@ -51,18 +48,18 @@ export default function ProductDetailPage({ params }) {
   // Polling order completion status
   useEffect(() => {
     let intervalId;
-    if (orderId && paymentStatus === "PENDING") {
+    if (orderId && paymentStatus === "processing") {
       intervalId = setInterval(async () => {
         try {
           const statusDetails = await getOrderStatus(orderId);
           if (statusDetails.status === "COMPLETED") {
-            setPaymentStatus("COMPLETED");
+            setPaymentStatus("success");
             clearInterval(intervalId);
-            // Re-fetch product to get refreshed stock counts
+            // Refresh details
             const refreshed = await getPerfumeById(perfumeId);
             setPerfume(refreshed);
           } else if (statusDetails.status === "FAILED") {
-            setPaymentStatus("FAILED");
+            setPaymentStatus("failed");
             clearInterval(intervalId);
           }
         } catch (err) {
@@ -75,7 +72,7 @@ export default function ProductDetailPage({ params }) {
     };
   }, [orderId, paymentStatus, perfumeId]);
 
-  // Calculate pricing based on bottle size selection (Decant is 15% of full price)
+  // Pricing calculations
   const getUnitPrice = () => {
     if (!perfume) return 0;
     return size === "FULL" ? perfume.price : perfume.price * 0.15;
@@ -89,17 +86,17 @@ export default function ProductDetailPage({ params }) {
   async function handleOrderSubmit(e) {
     e.preventDefault();
     setCheckoutError("");
-    setIsSubmitting(true);
+    setPaymentStatus("processing");
 
     if (!/^254(7|1)\d{8}$/.test(phone)) {
       setCheckoutError("Provide a valid phone starting with 254 (e.g. 254712345678)");
-      setIsSubmitting(false);
+      setPaymentStatus("idle");
       return;
     }
 
     if (quantity > perfume.stockCount) {
       setCheckoutError("Requested quantity exceeds available stock.");
-      setIsSubmitting(false);
+      setPaymentStatus("idle");
       return;
     }
 
@@ -111,258 +108,260 @@ export default function ProductDetailPage({ params }) {
         quantity
       );
       setOrderId(response.orderId);
-      setPaymentStatus("PENDING");
     } catch (err) {
       setCheckoutError(err.message || "Checkout submission failed.");
-    } finally {
-      setIsSubmitting(false);
+      setPaymentStatus("idle");
     }
   }
 
-  // Close payment tracking modal
   function resetPaymentTracking() {
     setOrderId(null);
-    setPaymentStatus(null);
+    setPaymentStatus("idle");
     setCheckoutError("");
     setQuantity(1);
   }
 
   if (loading) {
-    return <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "5rem" }}>⏳ Loading fragrance profile...</p>;
+    return <p className="text-center text-muted-foreground py-24">⏳ Loading fragrance profile...</p>;
   }
 
   if (errorMsg || !perfume) {
     return (
-      <div style={{ textAlign: "center", padding: "5rem" }}>
-        <p className="error-message">{errorMsg || "Fragrance not found."}</p>
-        <Link href="/catalog" className="btn-secondary" style={{ display: "inline-block", marginTop: "2rem", textDecoration: "none" }}>
-          Return to Catalog
+      <div className="text-center py-24">
+        <p className="text-red-500 font-medium">{errorMsg || "Fragrance not found."}</p>
+        <Link href="/catalog" className="no-underline">
+          <button className="mt-8 rounded-none border border-foreground bg-transparent text-foreground hover:bg-foreground hover:text-background text-label-caps py-3 px-6 cursor-pointer transition-colors font-semibold">
+            Return to Catalog
+          </button>
         </Link>
       </div>
     );
   }
 
-  // Dynamic olfactory notes based on the seeded brand/name
-  const getOlfactoryNotes = () => {
+  // Olfactory notes matching details page layout
+  const getNotes = () => {
     const brand = perfume.brand.toUpperCase();
     if (brand.includes("CHANEL")) {
       return {
-        top: "Aldehydes, Ylang-Ylang, Neroli, Bergamot",
-        heart: "Iris, Jasmine, Rose, Orris Root",
-        base: "Sandalwood, Amber, Patchouli, Musk, Vetiver"
+        top: "Aldehydes, Ylang-Ylang, Neroli",
+        heart: "Iris, Jasmine, Rose",
+        base: "Sandalwood, Amber, Patchouli"
       };
     } else if (brand.includes("DIOR")) {
       return {
         top: "Calabrian Bergamot, Sichuan Pepper",
-        heart: "Lavender, Pink Pepper, Vetiver, Patchouli",
+        heart: "Lavender, Pink Pepper, Patchouli",
         base: "Ambroxan, Cedar, Labdanum"
-      };
-    } else if (brand.includes("LAURENT") || brand.includes("YSL")) {
-      return {
-        top: "Pear, Pink Pepper, Orange Blossom",
-        heart: "Coffee, Jasmine, Bitter Almond, Licorice",
-        base: "Vanilla, Patchouli, Cashmere Wood, Cedar"
       };
     }
     return {
       top: "Bergamot, Citrus, Fresh Spices",
-      heart: "White Florals, Lavender, Soft Resins",
+      heart: "White Florals, Lavender, Resins",
       base: "Sandalwood, Warm Musk, Amberwood"
     };
   };
 
-  const notes = getOlfactoryNotes();
+  const notes = getNotes();
 
   return (
-    <main style={{ paddingBottom: "4rem" }}>
-      
-      <Link href="/catalog" className="btn-secondary" style={{ display: "inline-block", textDecoration: "none", marginBottom: "2rem" }}>
-        ← Back to Catalog
-      </Link>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "3rem" }}>
-        
-        {/* Left Side: Olfactory Profile */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-          <div className="glass-panel animate-float" style={{ padding: "3rem 2rem", borderRadius: "24px", textAlign: "center", border: "1px solid rgba(212, 175, 55, 0.15)" }}>
-            <span style={{ fontSize: "6rem" }}>🧴</span>
-            <h2 className="text-gold-gradient" style={{ fontSize: "2rem", marginTop: "1.5rem", fontWeight: 700 }}>{perfume.name}</h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.95rem", letterSpacing: "1px", textTransform: "uppercase" }}>{perfume.brand}</p>
-          </div>
-
-          <div className="glass-panel" style={{ padding: "2rem", borderRadius: "20px" }}>
-            <h3 style={{ fontSize: "1.2rem", fontWeight: 600, color: "var(--primary)", marginBottom: "1rem" }}>Olfactory Notes</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", fontSize: "0.9rem" }}>
-              <div style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", paddingBottom: "0.75rem" }}>
-                <strong style={{ color: "#ffffff", display: "block", marginBottom: "0.25rem" }}>Top Notes</strong>
-                <span style={{ color: "var(--text-muted)" }}>{notes.top}</span>
-              </div>
-              <div style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", paddingBottom: "0.75rem" }}>
-                <strong style={{ color: "#ffffff", display: "block", marginBottom: "0.25rem" }}>Heart Notes</strong>
-                <span style={{ color: "var(--text-muted)" }}>{notes.heart}</span>
-              </div>
-              <div>
-                <strong style={{ color: "#ffffff", display: "block", marginBottom: "0.25rem" }}>Base Notes</strong>
-                <span style={{ color: "var(--text-muted)" }}>{notes.base}</span>
-              </div>
-            </div>
+    <div className="container-wide py-12">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+        {/* Image Gallery */}
+        <div className="space-y-4">
+          <div className="aspect-fashion overflow-hidden bg-muted">
+            <img
+              src="https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=1200"
+              alt={perfume.name}
+              className="w-full h-full object-cover img-awaken"
+            />
           </div>
         </div>
 
-        {/* Right Side: Product Details & M-Pesa Checkout */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-          <div className="glass-panel" style={{ padding: "2.5rem", borderRadius: "24px" }}>
-            <h2 style={{ fontSize: "1.8rem", fontWeight: 600, marginBottom: "0.75rem", color: "#ffffff" }}>Fragrance Overview</h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.95rem", lineHeight: "1.6", marginBottom: "1.5rem" }}>{perfume.description}</p>
-            
-            <div style={{ borderTop: "1px solid var(--border-color)", borderBottom: "1px solid var(--border-color)", padding: "1.25rem 0", marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {/* Product Info */}
+        <div className="flex flex-col justify-center">
+          <div className="mb-8 border-b border-border/50 pb-8">
+            <h1 className="text-display-xl mb-4 font-serif">{perfume.name}</h1>
+            <p className="text-body-lg text-muted-foreground mb-6">
+              {perfume.brand} Exclusive
+            </p>
+            <p className="text-headline-lg font-medium text-primary">${unitPrice.toFixed(2)}</p>
+          </div>
+
+          <div className="mb-8">
+            <p className="text-body-lg mb-6 leading-relaxed text-muted-foreground">
+              {perfume.description}
+            </p>
+
+            <div className="grid grid-cols-3 gap-4 mb-8">
               <div>
-                <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Standard Bottle Price</span>
-                <div style={{ fontSize: "2rem", fontWeight: 700, color: "var(--primary)" }}>${perfume.price.toFixed(2)}</div>
+                <h4 className="text-label-caps text-muted-foreground mb-2">
+                  Top Notes
+                </h4>
+                <p className="text-body-md text-foreground">{notes.top}</p>
               </div>
-              <span className={`stock-tag ${perfume.stockCount > 0 ? "stock-ok" : "stock-low"}`} style={{ height: "fit-content" }}>
-                {perfume.stockCount > 0 ? `${perfume.stockCount} Bottles Left` : "Out of Stock"}
-              </span>
-            </div>
-
-            {/* Sizing Toggles */}
-            <div style={{ marginBottom: "2rem" }}>
-              <span style={{ fontSize: "0.9rem", color: "var(--text-muted)", display: "block", marginBottom: "0.75rem", fontWeight: 500 }}>Select Bottle Sizing</span>
-              <div style={{ display: "flex", gap: "1rem" }}>
-                <button 
-                  onClick={() => setSize("FULL")} 
-                  className="btn-secondary" 
-                  style={{
-                    flex: 1,
-                    background: size === "FULL" ? "rgba(212, 175, 55, 0.1)" : "transparent",
-                    borderColor: size === "FULL" ? "var(--primary)" : "var(--border-color)",
-                    color: size === "FULL" ? "var(--primary)" : "var(--text-main)",
-                    fontWeight: 600
-                  }}
-                >
-                  🧴 Full Bottle (100ml)
-                </button>
-                <button 
-                  onClick={() => setSize("DECANT")} 
-                  className="btn-secondary" 
-                  style={{
-                    flex: 1,
-                    background: size === "DECANT" ? "rgba(212, 175, 55, 0.1)" : "transparent",
-                    borderColor: size === "DECANT" ? "var(--primary)" : "var(--border-color)",
-                    color: size === "DECANT" ? "var(--primary)" : "var(--text-main)",
-                    fontWeight: 600
-                  }}
-                >
-                  🧪 Travel Decant (10ml)
-                </button>
+              <div>
+                <h4 className="text-label-caps text-muted-foreground mb-2">
+                  Heart Notes
+                </h4>
+                <p className="text-body-md text-foreground">{notes.heart}</p>
+              </div>
+              <div>
+                <h4 className="text-label-caps text-muted-foreground mb-2">
+                  Base Notes
+                </h4>
+                <p className="text-body-md text-foreground">{notes.base}</p>
               </div>
             </div>
+          </div>
 
-            {/* Checkout Interface conditional wrapper */}
-            {token ? (
-              <form onSubmit={handleOrderSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end" }}>
-                  <div className="form-group" style={{ flex: 1.5 }}>
-                    <label htmlFor="qty-input" className="form-label">Quantity</label>
-                    <input 
-                      id="qty-input" 
-                      type="number" 
-                      min="1" 
-                      max={perfume.stockCount} 
-                      className="form-input" 
-                      value={quantity} 
-                      onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} 
-                      required 
-                    />
-                  </div>
-                  <div className="form-group" style={{ flex: 3.5 }}>
-                    <label htmlFor="phone-input" className="form-label">M-Pesa Phone Number</label>
-                    <input 
-                      id="phone-input" 
-                      type="tel" 
-                      className="form-input" 
-                      placeholder="254712345678" 
-                      value={phone} 
-                      onChange={(e) => setPhone(e.target.value)} 
-                      required 
-                    />
-                  </div>
-                </div>
-
-                <div className="checkout-details" style={{ margin: "0.5rem 0" }}>
-                  <div className="checkout-row">
-                    <span>Unit Price ({size === "FULL" ? "100ml" : "10ml decant"}):</span>
-                    <span>${unitPrice.toFixed(2)} USD</span>
-                  </div>
-                  <div className="checkout-row checkout-total" style={{ fontSize: "1.2rem" }}>
-                    <span>Total Amount (KES):</span>
-                    <span>KES {totalPriceKES.toLocaleString()}</span>
-                  </div>
-                  <small style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "block" }}>
-                    USD converted at 1 USD = 130 KES for Safaricom STK checkout
-                  </small>
-                </div>
-
-                <button id="order-submit-btn" type="submit" className="btn-primary" style={{ width: "100%", padding: "0.85rem" }} disabled={isSubmitting || perfume.stockCount === 0}>
-                  {isSubmitting ? "Processing checkout..." : "Pay with M-Pesa"}
+          <div className="space-y-6 mb-8">
+            <div>
+              <h4 className="text-label-caps mb-4">Select Size</h4>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setSize("FULL")}
+                  className={`flex-1 py-4 border cursor-pointer font-semibold transition-colors rounded-none text-label-caps ${
+                    size === "FULL"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-foreground bg-transparent"
+                  }`}
+                >
+                  100ml Full Bottle
                 </button>
-                {checkoutError && <p className="error-message">⚠️ {checkoutError}</p>}
-              </form>
-            ) : (
-              <div style={{ textAlign: "center", padding: "1.5rem", background: "rgba(255,255,255,0.02)", border: "1px dashed var(--border-color)", borderRadius: "16px" }}>
-                <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "1rem" }}>You must sign in to clear orders and pay via M-Pesa.</p>
-                <Link href="/auth" className="btn-primary" style={{ display: "inline-block", textDecoration: "none", padding: "0.6rem 2rem" }}>
+                <button
+                  onClick={() => setSize("DECANT")}
+                  className={`flex-1 py-4 border cursor-pointer font-semibold transition-colors rounded-none text-label-caps ${
+                    size === "DECANT"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-foreground bg-transparent"
+                  }`}
+                >
+                  10ml Decant
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Checkout triggers */}
+          {token ? (
+            <div>
+              <button
+                onClick={() => setPaymentStatus("checkout-form")}
+                disabled={perfume.stockCount === 0}
+                className="w-full rounded-none bg-primary text-primary-foreground hover:bg-primary/90 h-14 text-label-caps border-none cursor-pointer font-bold transition-colors"
+              >
+                {perfume.stockCount > 0 ? "Purchase Now" : "Out of Stock"}
+              </button>
+            </div>
+          ) : (
+            <div className="p-6 bg-muted/20 border border-dashed border-border/50 text-center rounded-none">
+              <p className="text-body-md text-muted-foreground mb-4">You must sign in to place checkout orders.</p>
+              <Link href="/auth" className="no-underline">
+                <button className="rounded-none bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-8 border-none cursor-pointer font-bold transition-colors text-label-caps">
                   Sign In to Purchase
-                </Link>
-              </div>
-            )}
-          </div>
+                </button>
+              </Link>
+            </div>
+          )}
         </div>
-
       </div>
 
       {/* --- PAYMENT POPUP MODAL --- */}
-      {paymentStatus !== null && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-content" style={{ maxWidth: "450px", textAlign: "center" }}>
+      {paymentStatus !== "idle" && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="border border-border/50 bg-card/95 backdrop-blur-xl p-8 max-w-md w-full relative">
             
-            {paymentStatus === "PENDING" && (
+            {paymentStatus === "checkout-form" && (
               <div>
-                <div className="stk-pulsing">
-                  <span className="stk-icon">📱</span>
+                <div className="mb-6 flex justify-between items-center">
+                  <h3 className="text-headline-md font-serif text-foreground">M-Pesa Checkout</h3>
+                  <button className="bg-transparent border-none text-muted-foreground hover:text-foreground cursor-pointer text-lg font-bold" onClick={resetPaymentTracking}>✕</button>
                 </div>
-                <h4 style={{ fontWeight: 600, fontSize: "1.2rem", marginBottom: "0.5rem", color: "#ffffff" }}>STK Push Dispatched</h4>
-                <p className="stk-text" style={{ fontSize: "0.9rem", marginBottom: "1rem" }}>
-                  Please check your phone for the M-Pesa pin prompt to clear the payment of 
-                  <strong> KES {totalPriceKES.toLocaleString()}</strong>.
+                
+                <p className="text-body-md text-muted-foreground mb-6">
+                  Order total KES {totalPriceKES.toLocaleString()} for {quantity}x {perfume.name} ({size === "FULL" ? "100ml bottle" : "10ml decant"}).
                 </p>
-                <div style={{ color: "var(--primary)", fontSize: "0.9rem", fontWeight: 600 }}>
-                  ⏳ Awaiting M-Pesa callback confirmation...
-                </div>
+
+                <form onSubmit={handleOrderSubmit} className="space-y-6">
+                  <div className="space-y-2 flex gap-4">
+                    <div className="w-1/3">
+                      <label className="text-xs font-semibold uppercase text-muted-foreground block mb-2">Quantity</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={perfume.stockCount}
+                        value={quantity}
+                        onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                        className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                      />
+                    </div>
+                    <div className="w-2/3">
+                      <label className="text-xs font-semibold uppercase text-muted-foreground block mb-2">M-Pesa Phone Number</label>
+                      <input
+                        type="tel"
+                        placeholder="254700000000"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Enter Safaricom number format: 2547...
+                  </p>
+
+                  <button
+                    type="submit"
+                    className="w-full rounded-none bg-[#4CAF50] hover:bg-[#45a049] text-white h-12 text-label-caps border-none cursor-pointer font-bold transition-colors"
+                  >
+                    Pay via M-Pesa
+                  </button>
+                </form>
+                {checkoutError && <p className="text-red-500 text-xs mt-3">⚠️ {checkoutError}</p>}
               </div>
             )}
 
-            {paymentStatus === "COMPLETED" && (
-              <div style={{ padding: "1rem 0" }}>
-                <div style={{ fontSize: "3.5rem", color: "#4ade80", marginBottom: "1rem" }}>✓</div>
-                <h4 style={{ fontWeight: 600, fontSize: "1.3rem", marginBottom: "0.5rem", color: "#4ade80" }}>Payment Cleared!</h4>
-                <p className="stk-text" style={{ fontSize: "0.9rem", marginBottom: "1.5rem" }}>
-                  Your order has been completed and perfume stock levels updated in the catalog.
+            {paymentStatus === "processing" && (
+              <div className="text-center py-8 space-y-4">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <h3 className="text-headline-md font-serif text-foreground">Awaiting Payment</h3>
+                <p className="text-body-md text-muted-foreground">
+                  Please check your phone and enter your M-Pesa PIN for KES {totalPriceKES.toLocaleString()} to complete the transaction.
                 </p>
-                <button className="btn-primary" style={{ width: "200px" }} onClick={resetPaymentTracking}>
+              </div>
+            )}
+
+            {paymentStatus === "success" && (
+              <div className="text-center py-8 space-y-4">
+                <div className="w-16 h-16 bg-primary/20 text-primary rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
+                  ✓
+                </div>
+                <h3 className="text-headline-md text-primary font-serif">Payment Successful</h3>
+                <p className="text-body-md text-muted-foreground">
+                  Your order has been confirmed and stock counts updated.
+                </p>
+                <button
+                  className="rounded-none bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-8 border-none cursor-pointer font-bold transition-colors mt-4 text-xs tracking-wider"
+                  onClick={resetPaymentTracking}
+                >
                   Done
                 </button>
               </div>
             )}
 
-            {paymentStatus === "FAILED" && (
-              <div style={{ padding: "1rem 0" }}>
-                <div style={{ fontSize: "3.5rem", color: "#ff4a4a", marginBottom: "1rem" }}>✗</div>
-                <h4 style={{ fontWeight: 600, fontSize: "1.3rem", marginBottom: "0.5rem", color: "#ff4a4a" }}>Payment Failed</h4>
-                <p className="stk-text" style={{ fontSize: "0.9rem", marginBottom: "1.5rem" }}>
-                  The STK push request failed or was cancelled by the customer.
+            {paymentStatus === "failed" && (
+              <div className="text-center py-8 space-y-4">
+                <div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
+                  ✕
+                </div>
+                <h3 className="text-headline-md text-red-500 font-serif">Payment Failed</h3>
+                <p className="text-body-md text-muted-foreground">
+                  The STK push request failed or was rejected.
                 </p>
-                <button className="btn-secondary" style={{ width: "200px" }} onClick={resetPaymentTracking}>
+                <button
+                  className="rounded-none bg-transparent border border-border text-foreground hover:bg-muted/10 h-10 px-8 cursor-pointer font-bold transition-colors mt-4 text-xs tracking-wider"
+                  onClick={resetPaymentTracking}
+                >
                   Close
                 </button>
               </div>
@@ -372,6 +371,6 @@ export default function ProductDetailPage({ params }) {
         </div>
       )}
 
-    </main>
+    </div>
   );
 }

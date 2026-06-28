@@ -4,134 +4,127 @@ import { useState, useEffect } from "react";
 import { getPerfumes } from "./api";
 import Link from "next/link";
 
-/**
- * Root Landing Page Component (/).
- * Renders a premium luxury storefront presentation featuring the hero banner,
- * slow float animation keyframes, feature call-outs, and popular arrivals.
- */
 export default function LandingPage() {
-  const [popularPerfumes, setPopularPerfumes] = useState([]);
+  const [featuredPerfumes, setFeaturedPerfumes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load sample perfumes for the popular arrivals gallery
+  // Dynamic arrivals loading from Spring Boot backend catalog
   useEffect(() => {
-    async function loadPopular() {
+    async function loadFeatured() {
       try {
         const data = await getPerfumes();
-        // Take the first 3 perfumes as featured arrivals
-        setPopularPerfumes(data.slice(0, 3));
+        // Capture up to 3 perfumes
+        setFeaturedPerfumes(data.slice(0, 3));
       } catch (err) {
-        console.error("Failed to load featured perfumes:", err);
+        console.error("Failed to load catalog arrivals:", err);
       } finally {
         setLoading(false);
       }
     }
-    loadPopular();
+    loadFeatured();
   }, []);
 
   return (
-    <main style={{ paddingBottom: "6rem" }}>
-      
-      {/* 1. HERO HEADER SECTION */}
-      <section style={{ display: "flex", justifyContent: "space-between", alignItems: "center", minHeight: "60vh", flexWrap: "wrap", gap: "2rem", margin: "2rem 0 4rem 0" }}>
-        <div style={{ flex: "1 1 500px", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <span style={{ fontSize: "0.85rem", color: "var(--primary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "2px" }}>
-            Est. 2026 • Haute Parfumerie
-          </span>
-          <h1 className="text-gold-gradient" style={{ fontSize: "3.8rem", fontWeight: 700, lineHeight: "1.1", fontFamily: "serif" }}>
-            Liquid Memories, <br />Artfully Bottled.
+    <div className="w-full">
+      {/* Hero Section */}
+      <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <img
+            src="https://images.unsplash.com/photo-1615397323282-31251f77569e?auto=format&fit=crop&q=80&w=2000"
+            alt="Luxury Perfume"
+            className="w-full h-full object-cover opacity-40 img-awaken"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/60 to-background"></div>
+        </div>
+
+        <div className="container-wide relative z-10 text-center max-w-4xl mx-auto mt-20">
+          <h1 className="text-display-xl mb-6 text-foreground">
+            The Essence of Noir
           </h1>
-          <p style={{ color: "var(--text-muted)", fontSize: "1.1rem", lineHeight: "1.7", maxWidth: "480px" }}>
-            Explore decants and full bottles of the world's most exclusive fragrance collections. 
-            Cleared instantly through integrated Safaricom M-Pesa STK billing.
+          <p className="text-body-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
+            Discover a curated collection of high-fashion fragrances designed to
+            awaken the senses and define your signature aura.
           </p>
-          <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-            <Link href="/catalog" className="bg-luxury-gold" style={{ textDecoration: "none", padding: "0.9rem 2.2rem", borderRadius: "12px", fontWeight: 600, fontSize: "0.95rem", boxShadow: "0 4px 20px rgba(212,175,55,0.2)", display: "inline-block" }}>
-              Explore Collection
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/catalog" className="no-underline">
+              <button className="rounded-none bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto text-label-caps h-14 px-10 border-none font-bold cursor-pointer transition-colors">
+                Explore Collection
+              </button>
             </Link>
-            <Link href="/auth" className="btn-secondary" style={{ textDecoration: "none", padding: "0.9rem 2.2rem", display: "inline-block" }}>
-              Create Account
+            <Link href="/auth" className="no-underline">
+              <button className="rounded-none bg-transparent border border-primary text-primary hover:bg-primary hover:text-primary-foreground w-full sm:w-auto text-label-caps h-14 px-10 font-bold cursor-pointer transition-colors">
+                Join the Club
+              </button>
             </Link>
-          </div>
-        </div>
-
-        {/* Slow Float Animation Display Bottle */}
-        <div style={{ flex: "1 1 350px", display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <div className="glass-panel animate-float" style={{ padding: "4rem 3rem", borderRadius: "30px", border: "1px solid rgba(212, 175, 55, 0.2)", boxShadow: "0 20px 50px rgba(0,0,0,0.6)", textAlign: "center", position: "relative" }}>
-            <div style={{ position: "absolute", top: "10%", left: "10%", right: "10%", bottom: "10%", background: "radial-gradient(circle, var(--primary-glow) 0%, transparent 70%)", zIndex: 0 }}></div>
-            <span style={{ fontSize: "9rem", display: "block", position: "relative", zIndex: 1 }}>🧴</span>
-            <div style={{ marginTop: "1.5rem", position: "relative", zIndex: 1 }}>
-              <span style={{ color: "var(--primary)", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "1px", fontWeight: 600 }}>Featured Fragrance</span>
-              <h3 style={{ fontSize: "1.4rem", margin: "0.25rem 0", color: "#ffffff" }}>Sauvage Elixir</h3>
-              <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>By Dior</span>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* 2. VALUE PROPOSITIONS */}
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "2rem", marginBottom: "5rem" }}>
-        <div className="glass-panel" style={{ padding: "2rem", borderRadius: "20px", border: "1px solid var(--border-color)" }}>
-          <span style={{ fontSize: "2rem" }}>🧪</span>
-          <h4 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "1rem 0 0.5rem 0", color: "#ffffff" }}>Premium Travel Decants</h4>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.88rem" }}>Try travel-friendly 10ml decants before committing to an expensive full bottle. 100% original fragrances.</p>
-        </div>
-
-        <div className="glass-panel" style={{ padding: "2rem", borderRadius: "20px", border: "1px solid var(--border-color)" }}>
-          <span style={{ fontSize: "2rem" }}>📱</span>
-          <h4 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "1rem 0 0.5rem 0", color: "#ffffff" }}>M-Pesa STK Clearance</h4>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.88rem" }}>Enter your phone, receive an instant PIN pop-up on your device, and clear payments securely in seconds.</p>
-        </div>
-
-        <div className="glass-panel" style={{ padding: "2rem", borderRadius: "20px", border: "1px solid var(--border-color)" }}>
-          <span style={{ fontSize: "2rem" }}>🚚</span>
-          <h4 style={{ fontSize: "1.1rem", fontWeight: 600, margin: "1rem 0 0.5rem 0", color: "#ffffff" }}>Tracked Logistics</h4>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.88rem" }}>All orders are logged, verified, and shipped with real-time tracking numbers directly to your doorstep.</p>
-        </div>
-      </section>
-
-      {/* 3. POPULAR NEW ARRIVALS */}
-      <section>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "2rem" }}>
-          <div>
-            <h2 style={{ fontSize: "2rem", fontWeight: 600, color: "#ffffff" }}>Curated Arrivals</h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Exquisite scents handpicked for the season</p>
-          </div>
-          <Link href="/catalog" style={{ color: "var(--primary)", textDecoration: "none", fontSize: "0.95rem", fontWeight: 600 }}>
-            Browse Entire Catalog →
+      {/* Featured Section */}
+      <section className="section-gap container-wide">
+        <div className="flex justify-between items-end mb-12 border-b border-border/50 pb-6">
+          <h2 className="text-headline-lg font-serif">Curated Arrivals</h2>
+          <Link
+            href="/catalog"
+            className="text-label-caps text-primary hover:underline underline-offset-4 no-underline font-semibold"
+          >
+            View All
           </Link>
         </div>
 
         {loading ? (
-          <p style={{ color: "var(--text-muted)" }}>Loading featured arrivals...</p>
+          <p className="text-center text-muted-foreground py-12">⏳ Loading arrivals gallery...</p>
         ) : (
-          <div className="catalog-grid">
-            {popularPerfumes.map((perfume) => (
-              <div key={perfume.id} className="glass-panel perfume-card hover-card-luxury" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                <div>
-                  <span className="perfume-brand">{perfume.brand}</span>
-                  <h3 className="perfume-name" style={{ fontSize: "1.2rem", margin: "0.25rem 0 0.5rem 0" }}>{perfume.name}</h3>
-                  <p className="perfume-desc" style={{ fontSize: "0.85rem", minHeight: "55px" }}>{perfume.description}</p>
-                </div>
-                
-                <div>
-                  <div className="perfume-footer" style={{ marginTop: "1rem" }}>
-                    <span className="perfume-price">${perfume.price.toFixed(2)}</span>
-                    <span className="stock-tag stock-ok">{perfume.stockCount} left</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+            {featuredPerfumes.map((perfume) => (
+              <Link href={`/catalog/${perfume.id}`} key={perfume.id} className="group block no-underline text-foreground">
+                <div className="aspect-fashion overflow-hidden bg-muted relative mb-6">
+                  <img
+                    src="https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800"
+                    alt={perfume.name}
+                    className="w-full h-full object-cover img-awaken group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <div className="absolute top-4 left-4 bg-background/80 backdrop-blur px-3 py-1 text-label-caps border border-border/40 text-[10px]">
+                    New
                   </div>
-
-                  <Link href={`/catalog/${perfume.id}`} style={{ textDecoration: "none" }}>
-                    <button className="btn-primary" style={{ width: "100%", marginTop: "1.25rem" }}>
-                      View Fragrance Details
-                    </button>
-                  </Link>
                 </div>
-              </div>
+                <h3 className="text-headline-md mb-2 group-hover:text-primary transition-colors font-serif">
+                  {perfume.name}
+                </h3>
+                <p className="text-body-md text-muted-foreground mb-4">
+                  {perfume.brand}
+                </p>
+                <p className="text-body-lg font-medium text-primary">${perfume.price.toFixed(2)}</p>
+              </Link>
             ))}
           </div>
         )}
       </section>
 
-    </main>
+      {/* Editorial Banner */}
+      <section className="section-gap bg-muted/30 py-24 relative overflow-hidden border-y border-border/40">
+        <div className="container-wide grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
+          <div>
+            <h2 className="text-display-xl mb-6 font-serif">Artistry in Every Drop</h2>
+            <p className="text-body-lg text-muted-foreground mb-8">
+              Our master perfumers blend rare botanicals and synthetic
+              innovations to create olfactory masterpieces that linger in the
+              memory long after you've left the room.
+            </p>
+            <button className="bg-transparent rounded-none border border-foreground text-foreground hover:bg-foreground hover:text-background text-label-caps h-12 px-8 font-semibold cursor-pointer transition-colors">
+              Read Our Story
+            </button>
+          </div>
+          <div className="aspect-square relative">
+            <img
+              src="https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&q=80&w=1000"
+              alt="Perfume Ingredients"
+              className="w-full h-full object-cover grayscale"
+            />
+            <div className="absolute inset-0 border-2 border-primary m-4 pointer-events-none"></div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

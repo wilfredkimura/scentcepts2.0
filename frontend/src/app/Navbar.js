@@ -2,18 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-/**
- * Global Navbar Component.
- * Responsive glassmorphism header offering links to landing, catalog collections,
- * admin dashboards, and signup panels based on client JWT states.
- */
 export default function Navbar() {
+  const router = useRouter();
   const [token, setToken] = useState(null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState(null);
 
-  // Sync authentication states from localStorage on component mount
+  // Sync auth state from localStorage on component mount
   useEffect(() => {
     function syncAuth() {
       const savedToken = localStorage.getItem("token");
@@ -26,9 +23,7 @@ export default function Navbar() {
     
     syncAuth();
 
-    // Listen for storage events (e.g. when logging in from /auth page)
     window.addEventListener("storage", syncAuth);
-    // Custom trigger to sync state within the same window
     window.addEventListener("local-auth-change", syncAuth);
 
     return () => {
@@ -37,7 +32,6 @@ export default function Navbar() {
     };
   }, []);
 
-  // Wipes token credentials and redirects to storefront root
   function handleLogout() {
     localStorage.removeItem("token");
     localStorage.removeItem("email");
@@ -46,55 +40,55 @@ export default function Navbar() {
     setEmail("");
     setRole(null);
     
-    // Dispatch local event to notify other components
     window.dispatchEvent(new Event("local-auth-change"));
-    
-    window.location.href = "/";
+    router.push("/");
   }
 
+  const isAdmin = role === "ROLE_ADMIN";
+
   return (
-    <header className="header" style={{ position: "sticky", top: "1rem", zIndex: 100, marginBottom: "2rem" }}>
-      {/* Brand Logo Link */}
-      <Link href="/" style={{ textDecoration: "none" }}>
-        <div className="logo">Scentcepts</div>
-      </Link>
-
-      {/* Center Nav Links */}
-      <nav style={{ display: "flex", gap: "2rem", alignItems: "center" }}>
-        <Link href="/catalog" style={{ textDecoration: "none", color: "var(--text-main)", fontWeight: 500, fontSize: "0.95rem" }} className="nav-link-hover">
-          🛍️ Catalog
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
+      <div className="container-wide flex h-20 items-center justify-between">
+        <Link href="/" className="text-headline-md font-bold tracking-tighter no-underline text-foreground hover:text-primary transition-colors font-serif">
+          SCENTCEPTS
         </Link>
-      </nav>
-
-      {/* User Login/Dashboard Navigation */}
-      <div className="nav-user">
-        {token ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <span className="user-email" style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>
-              {email}
-            </span>
-            {role === "ROLE_ADMIN" && (
-              <Link id="navbar-admin-link" href="/admin" className="btn-secondary" style={{ textDecoration: "none", color: "var(--primary)", borderColor: "var(--primary)" }}>
-                👑 Admin Panel
-              </Link>
-            )}
-            <button id="navbar-logout-btn" className="btn-secondary" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-        ) : (
-          <Link id="navbar-signin-link" href="/auth" className="btn-primary" style={{ textDecoration: "none", padding: "0.6rem 1.2rem", fontSize: "0.9rem" }}>
-            Sign In
+        
+        <nav className="hidden md:flex gap-8">
+          <Link href="/catalog" className="text-label-caps hover:text-primary transition-colors no-underline text-foreground">
+            Catalog
           </Link>
-        )}
-      </div>
+          {token && isAdmin && (
+            <Link id="navbar-admin-link" href="/admin" className="text-label-caps hover:text-primary transition-colors no-underline text-foreground">
+              Admin
+            </Link>
+          )}
+        </nav>
 
-      <style jsx>{`
-        .nav-link-hover:hover {
-          color: var(--primary) !important;
-          transition: var(--transition-smooth);
-        }
-      `}</style>
+        <div className="flex items-center gap-4">
+          {token ? (
+            <div className="flex items-center gap-4">
+              <span className="text-body-md text-muted-foreground hidden sm:inline max-w-[150px] truncate">
+                {email}
+              </span>
+              <button
+                id="navbar-logout-btn"
+                className="rounded-none border border-primary bg-transparent text-primary hover:bg-primary hover:text-primary-foreground text-label-caps py-2 px-4 transition-colors font-semibold cursor-pointer text-xs"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button
+              id="navbar-signin-link"
+              className="rounded-none border border-primary bg-transparent text-primary hover:bg-primary hover:text-primary-foreground text-label-caps py-2 px-4 transition-colors font-semibold cursor-pointer text-xs"
+              onClick={() => router.push("/auth")}
+            >
+              Account
+            </button>
+          )}
+        </div>
+      </div>
     </header>
   );
 }

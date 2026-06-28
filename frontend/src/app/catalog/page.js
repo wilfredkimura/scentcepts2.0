@@ -4,22 +4,17 @@ import { useState, useEffect } from "react";
 import { getPerfumes } from "../api";
 import Link from "next/link";
 
-/**
- * CatalogPage Component.
- * Exposes full collection catalog browsing with search filters, brand filtering,
- * and card hover gold-glow effects linking to dynamic item detail pages.
- */
 export default function CatalogPage() {
   const [perfumes, setPerfumes] = useState([]);
   const [filteredPerfumes, setFilteredPerfumes] = useState([]);
   
   // Filtering states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBrand, setSelectedBrand] = useState("ALL");
+  const [search, setSearch] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState("All");
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Retrieve full collection catalog on component mount
+  // Load perfumes on mount
   useEffect(() => {
     async function loadCatalog() {
       try {
@@ -37,116 +32,134 @@ export default function CatalogPage() {
     loadCatalog();
   }, []);
 
-  // Recalculate filtrations when searchQuery or selectedBrand changes
+  // Filter local items
   useEffect(() => {
     let result = perfumes;
 
-    if (searchQuery.trim() !== "") {
-      const query = searchQuery.toLowerCase();
+    if (search.trim() !== "") {
+      const query = search.toLowerCase();
       result = result.filter(
         p => p.name.toLowerCase().includes(query) || p.brand.toLowerCase().includes(query)
       );
     }
 
-    if (selectedBrand !== "ALL") {
+    if (selectedBrand !== "All") {
       result = result.filter(p => p.brand === selectedBrand);
     }
 
     setFilteredPerfumes(result);
-  }, [searchQuery, selectedBrand, perfumes]);
+  }, [search, selectedBrand, perfumes]);
 
-  // Extract unique brands list for filtration tags
-  const brandsList = ["ALL", ...new Set(perfumes.map(p => p.brand))];
+  // Extract unique brands list
+  const brandsList = ["All", ...new Set(perfumes.map(p => p.brand))];
 
   return (
-    <main style={{ paddingBottom: "4rem" }}>
-      {/* Title */}
-      <div style={{ marginBottom: "2rem", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "1rem" }}>
-        <div>
-          <h1 className="text-gold-gradient" style={{ fontSize: "2.5rem", fontWeight: 700, marginBottom: "0.25rem" }}>The Luxury Collection</h1>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.95rem" }}>Explore premium fragrance houses and curated original decants</p>
-        </div>
+    <div className="container-wide py-12">
+      <div className="mb-16">
+        <h1 className="text-display-xl mb-6 font-serif">The Collection</h1>
+        <p className="text-body-lg text-muted-foreground max-w-2xl">
+          Explore our complete anthology of fine fragrances. Filter by brand or
+          search for specific olfactory profiles.
+        </p>
       </div>
 
-      {/* Search and Brand Filter Tag panel */}
-      <section className="glass-panel" style={{ padding: "1.5rem", borderRadius: "16px", marginBottom: "2rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-        <div className="form-group">
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Search perfumes or brands..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ padding: "0.85rem" }}
-          />
-        </div>
+      <div className="flex flex-col md:flex-row gap-8 mb-12">
+        {/* Sidebar Filters */}
+        <div className="w-full md:w-64 space-y-8">
+          <div>
+            <h3 className="text-label-caps mb-4">Search</h3>
+            <input
+              type="text"
+              placeholder="Search fragrances..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-background/50 border border-border/50 text-foreground px-4 py-3 rounded-none outline-none focus:border-primary transition-colors text-body-md h-12"
+            />
+          </div>
 
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginRight: "0.25rem" }}>Brand:</span>
-          {brandsList.map((brand) => (
-            <button
-              key={brand}
-              onClick={() => setSelectedBrand(brand)}
-              className="stock-tag"
-              style={{
-                cursor: "pointer",
-                background: selectedBrand === brand ? "var(--primary)" : "rgba(255,255,255,0.03)",
-                color: selectedBrand === brand ? "#0a0b0e" : "var(--text-main)",
-                fontWeight: selectedBrand === brand ? 600 : 400,
-                border: selectedBrand === brand ? "none" : "1px solid var(--border-color)",
-                padding: "0.4rem 0.8rem",
-                borderRadius: "8px"
-              }}
-            >
-              {brand}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {loading && <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "3rem" }}>⏳ Loading collection catalog...</p>}
-      {errorMsg && <p className="error-message" style={{ textAlign: "center" }}>{errorMsg}</p>}
-
-      {/* Product Display Cards Grid */}
-      <section className="catalog-grid">
-        {filteredPerfumes.map((perfume) => (
-          <div key={perfume.id} className="glass-panel perfume-card hover-card-luxury" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-            <div>
-              <span className="perfume-brand" style={{ letterSpacing: "1px", textTransform: "uppercase" }}>{perfume.brand}</span>
-              <h3 className="perfume-name" style={{ fontSize: "1.3rem", margin: "0.25rem 0 0.5rem 0", color: "#ffffff" }}>{perfume.name}</h3>
-              <p className="perfume-desc" style={{ minHeight: "65px", fontSize: "0.88rem", lineHeight: "1.4" }}>{perfume.description}</p>
-            </div>
-            
-            <div>
-              <div className="perfume-footer" style={{ marginTop: "1rem" }}>
-                <span className="perfume-price" style={{ fontSize: "1.4rem" }}>${perfume.price.toFixed(2)}</span>
-                {perfume.stockCount > 0 ? (
-                  <span className="stock-tag stock-ok">{perfume.stockCount} in stock</span>
-                ) : (
-                  <span className="stock-tag stock-low">Sold Out</span>
-                )}
-              </div>
-
-              <Link href={`/catalog/${perfume.id}`} style={{ textDecoration: "none" }}>
+          <div>
+            <h3 className="text-label-caps mb-4">Brands</h3>
+            <div className="space-y-3 flex flex-col items-start">
+              {brandsList.map((brand) => (
                 <button
-                  className="btn-primary"
-                  style={{ width: "100%", marginTop: "1.25rem", display: "flex", justifyContent: "center", alignItems: "center", gap: "0.5rem" }}
-                  disabled={perfume.stockCount === 0}
+                  key={brand}
+                  onClick={() => setSelectedBrand(brand)}
+                  className={`text-body-md transition-colors bg-transparent border-none cursor-pointer p-0 ${
+                    selectedBrand === brand
+                      ? "text-primary font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  {perfume.stockCount > 0 ? "View Fragrance Details" : "Out of Stock"}
+                  {brand}
                 </button>
-              </Link>
+              ))}
             </div>
           </div>
-        ))}
-      </section>
-
-      {!loading && filteredPerfumes.length === 0 && (
-        <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "5rem" }}>
-          <span style={{ fontSize: "2rem" }}>🔍</span>
-          <p style={{ marginTop: "1rem" }}>No fragrances matched your selection filters.</p>
         </div>
-      )}
-    </main>
+
+        {/* Catalog Grid */}
+        <div className="flex-1">
+          {loading && (
+            <p className="text-center text-muted-foreground py-24">⏳ Loading fragrance catalog...</p>
+          )}
+          {errorMsg && (
+            <p className="text-center text-red-500 font-medium py-24">⚠️ {errorMsg}</p>
+          )}
+
+          {!loading && !errorMsg && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-gutter">
+              {filteredPerfumes.map((perfume) => (
+                <Link
+                  href={`/catalog/${perfume.id}`}
+                  key={perfume.id}
+                  className="group block no-underline text-foreground"
+                >
+                  <div className="aspect-fashion overflow-hidden bg-muted relative mb-6">
+                    <img
+                      src="https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800"
+                      alt={perfume.name}
+                      className="w-full h-full object-cover img-awaken group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute top-4 left-4 flex flex-col gap-2">
+                      <span className="rounded-none bg-background/80 backdrop-blur text-foreground border border-border/40 text-[10px] tracking-wider uppercase font-semibold px-3 py-1">
+                        {perfume.stockCount > 0 ? "Exclusive" : "Out of Stock"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-headline-md group-hover:text-primary transition-colors font-serif">
+                      {perfume.name}
+                    </h3>
+                    <span className="text-body-lg font-medium text-primary">
+                      ${perfume.price.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-body-md text-muted-foreground">
+                    {perfume.brand}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {!loading && filteredPerfumes.length === 0 && (
+            <div className="text-center py-24">
+              <p className="text-body-lg text-muted-foreground">
+                No fragrances found matching your criteria.
+              </p>
+              <button
+                className="mt-6 rounded-none border border-primary bg-transparent text-primary hover:bg-primary hover:text-primary-foreground text-label-caps py-3 px-6 cursor-pointer transition-colors font-semibold"
+                onClick={() => {
+                  setSearch("");
+                  setSelectedBrand("All");
+                }}
+              >
+                Clear Filters
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
