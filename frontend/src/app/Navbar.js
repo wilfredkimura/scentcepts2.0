@@ -57,6 +57,11 @@ export default function Navbar() {
           <Link href="/catalog" className="text-label-caps hover:text-primary transition-colors no-underline text-foreground">
             Catalog
           </Link>
+          {token && !isAdmin && (
+            <Link id="navbar-receipts-link" href="/receipts" className="text-label-caps hover:text-primary transition-colors no-underline text-foreground">
+              Receipts
+            </Link>
+          )}
           {token && isAdmin && (
             <Link id="navbar-admin-link" href="/admin" className="text-label-caps hover:text-primary transition-colors no-underline text-foreground">
               Admin

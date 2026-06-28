@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { getPerfumeById, checkout, getOrderStatus } from "../../api";
+import { getPerfumeById, checkout, getOrderStatus, mockPayOrder } from "../../api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -18,6 +18,12 @@ export default function ProductDetailPage({ params }) {
   const [size, setSize] = useState("FULL"); // FULL (100ml) or DECANT (10ml)
   const [quantity, setQuantity] = useState(1);
   const [phone, setPhone] = useState("2547");
+
+  // WhatsApp form states
+  const [paymentMethod, setPaymentMethod] = useState("mpesa"); // mpesa or whatsapp
+  const [waName, setWaName] = useState("");
+  const [waAddress, setWaAddress] = useState("");
+  const [waNotes, setWaNotes] = useState("");
 
   // Control states
   const [loading, setLoading] = useState(true);
@@ -108,10 +114,48 @@ export default function ProductDetailPage({ params }) {
         quantity
       );
       setOrderId(response.orderId);
+
+      // Trigger asynchronous mock payment completion simulator after 1.5 seconds
+      setTimeout(async () => {
+        try {
+          await mockPayOrder(response.orderId);
+          console.log("Mock payment triggered for order: " + response.orderId);
+        } catch (mockErr) {
+          console.error("Mock payment failed to register:", mockErr);
+        }
+      }, 1500);
+
     } catch (err) {
       setCheckoutError(err.message || "Checkout submission failed.");
       setPaymentStatus("idle");
     }
+  }
+
+  // Forward order details to official Scentcepts WhatsApp portal
+  function handleWhatsAppSubmit(e) {
+    e.preventDefault();
+    if (!waName || !waAddress) {
+      alert("Please provide a name and delivery address.");
+      return;
+    }
+
+    const message = `⚜️ *SCENTCEPTS MAISON ORDER* ⚜️\n\n` +
+      `*Product*: ${perfume.name} (${perfume.brand})\n` +
+      `*Size*: ${size === "FULL" ? "100ml Bottle" : "10ml Decant"}\n` +
+      `*Quantity*: ${quantity}\n` +
+      `*Total Price*: KSH ${totalPriceKES.toLocaleString()}\n\n` +
+      `── *Delivery Information* ──\n` +
+      `*Customer Name*: ${waName}\n` +
+      `*Delivery Address*: ${waAddress}\n` +
+      `*Phone Number*: ${phone}\n` +
+      `*Special Notes*: ${waNotes || "None"}`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/254716052342?text=${encodedMessage}`;
+    
+    // Open in separate browser window/tab
+    window.open(whatsappUrl, "_blank");
+    resetPaymentTracking();
   }
 
   function resetPaymentTracking() {
@@ -119,6 +163,10 @@ export default function ProductDetailPage({ params }) {
     setPaymentStatus("idle");
     setCheckoutError("");
     setQuantity(1);
+    setPaymentMethod("mpesa");
+    setWaName("");
+    setWaAddress("");
+    setWaNotes("");
   }
 
   if (loading) {
@@ -273,50 +321,131 @@ export default function ProductDetailPage({ params }) {
             
             {paymentStatus === "checkout-form" && (
               <div>
-                <div className="mb-6 flex justify-between items-center">
-                  <h3 className="text-headline-md font-serif text-foreground">M-Pesa Checkout</h3>
+                <div className="mb-6 flex justify-between items-center border-b border-border/30 pb-4">
+                  <h3 className="text-headline-md font-serif text-foreground">Checkout Portal</h3>
                   <button className="bg-transparent border-none text-muted-foreground hover:text-foreground cursor-pointer text-lg font-bold" onClick={resetPaymentTracking}>✕</button>
                 </div>
-                
+
+                {/* Tab switcher */}
+                <div className="flex border-b border-border/40 mb-6">
+                  <button
+                    onClick={() => setPaymentMethod("mpesa")}
+                    className={`flex-1 pb-3 text-xs uppercase font-bold tracking-wider cursor-pointer border-b-2 bg-transparent transition-colors ${
+                      paymentMethod === "mpesa"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Lipa Na M-Pesa
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod("whatsapp")}
+                    className={`flex-1 pb-3 text-xs uppercase font-bold tracking-wider cursor-pointer border-b-2 bg-transparent transition-colors ${
+                      paymentMethod === "whatsapp"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    WhatsApp Order
+                  </button>
+                </div>
+
                 <p className="text-body-md text-muted-foreground mb-6">
-                  Order total KES {totalPriceKES.toLocaleString()} for {quantity}x {perfume.name} ({size === "FULL" ? "100ml bottle" : "10ml decant"}).
+                  Order: <strong className="text-foreground">{quantity}x {perfume.name}</strong> ({size === "FULL" ? "100ml Bottle" : "10ml Decant"}) — <strong className="text-primary">KSH {totalPriceKES.toLocaleString()}</strong>
                 </p>
 
-                <form onSubmit={handleOrderSubmit} className="space-y-6">
-                  <div className="space-y-2 flex gap-4">
-                    <div className="w-1/3">
-                      <label className="text-xs font-semibold uppercase text-muted-foreground block mb-2">Quantity</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max={perfume.stockCount}
-                        value={quantity}
-                        onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                        className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
-                      />
+                {paymentMethod === "mpesa" ? (
+                  <form onSubmit={handleOrderSubmit} className="space-y-6">
+                    <div className="space-y-2 flex gap-4">
+                      <div className="w-1/3">
+                        <label className="text-xs font-semibold uppercase text-muted-foreground block mb-2">Quantity</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={perfume.stockCount}
+                          value={quantity}
+                          onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                          className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                        />
+                      </div>
+                      <div className="w-2/3">
+                        <label className="text-xs font-semibold uppercase text-muted-foreground block mb-2">M-Pesa Phone Number</label>
+                        <input
+                          type="tel"
+                          placeholder="254700000000"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                        />
+                      </div>
                     </div>
-                    <div className="w-2/3">
-                      <label className="text-xs font-semibold uppercase text-muted-foreground block mb-2">M-Pesa Phone Number</label>
-                      <input
-                        type="tel"
-                        placeholder="254700000000"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Enter Safaricom number format: 2547...
-                  </p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Enter Safaricom number format: 2547...
+                    </p>
 
-                  <button
-                    type="submit"
-                    className="w-full rounded-none bg-[#4CAF50] hover:bg-[#45a049] text-white h-12 text-label-caps border-none cursor-pointer font-bold transition-colors"
-                  >
-                    Pay via M-Pesa
-                  </button>
-                </form>
+                    <button
+                      type="submit"
+                      className="w-full rounded-none bg-[#4CAF50] hover:bg-[#45a049] text-white h-12 text-label-caps border-none cursor-pointer font-bold transition-colors uppercase tracking-wider text-xs"
+                    >
+                      Pay via M-Pesa
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleWhatsAppSubmit} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold uppercase text-muted-foreground block">Quantity</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max={perfume.stockCount}
+                          value={quantity}
+                          onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                          className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold uppercase text-muted-foreground block">Customer Name</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Wilfred Kimura"
+                          value={waName}
+                          onChange={(e) => setWaName(e.target.value)}
+                          className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold uppercase text-muted-foreground block">Delivery Address / Location</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Nairobi CBD, Junction Mall"
+                        value={waAddress}
+                        onChange={(e) => setWaAddress(e.target.value)}
+                        className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold uppercase text-muted-foreground block">Special Delivery Instructions</label>
+                      <textarea
+                        rows="2"
+                        placeholder="e.g. Deliver between 2 PM and 5 PM"
+                        value={waNotes}
+                        onChange={(e) => setWaNotes(e.target.value)}
+                        className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full rounded-none bg-[#25D366] hover:bg-[#20ba56] text-white h-12 text-label-caps border-none cursor-pointer font-bold transition-colors uppercase tracking-wider text-xs"
+                    >
+                      Send Order to WhatsApp
+                    </button>
+                  </form>
+                )}
                 {checkoutError && <p className="text-red-500 text-xs mt-3">⚠️ {checkoutError}</p>}
               </div>
             )}
@@ -324,9 +453,9 @@ export default function ProductDetailPage({ params }) {
             {paymentStatus === "processing" && (
               <div className="text-center py-8 space-y-4">
                 <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <h3 className="text-headline-md font-serif text-foreground">Awaiting Payment</h3>
+                <h3 className="text-headline-md font-serif text-foreground">Processing Payment</h3>
                 <p className="text-body-md text-muted-foreground">
-                  Please check your phone and enter your M-Pesa PIN for KES {totalPriceKES.toLocaleString()} to complete the transaction.
+                  Simulating Lipa Na M-Pesa transaction. Please check your phone for the STK prompt...
                 </p>
               </div>
             )}
@@ -338,7 +467,7 @@ export default function ProductDetailPage({ params }) {
                 </div>
                 <h3 className="text-headline-md text-primary font-serif">Payment Successful</h3>
                 <p className="text-body-md text-muted-foreground">
-                  Your order has been confirmed and stock counts updated.
+                  Your order has been verified successfully. You can view your invoice receipt under the <Link href="/receipts" className="text-primary hover:underline font-semibold">Receipts</Link> tab.
                 </p>
                 <button
                   className="rounded-none bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-8 border-none cursor-pointer font-bold transition-colors mt-4 text-xs tracking-wider"

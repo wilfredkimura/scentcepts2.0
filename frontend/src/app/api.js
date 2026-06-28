@@ -316,3 +316,31 @@ export async function uploadPerfumeImage(file) {
     }
     return response.json();
 }
+
+/**
+ * Triggers a mock payment success callback on the backend for simulation.
+ */
+export async function mockPayOrder(id) {
+    const response = await fetch(`${BASE_URL}/orders/${id}/mock-pay`, {
+        method: 'POST',
+        headers: getHeaders()
+    });
+    if (!response.ok) {
+        throw new Error('Mock payment simulation failed');
+    }
+    return response.json();
+}
+
+/**
+ * Fetches standard users' past completed receipts.
+ */
+export async function getMyReceipts() {
+    const response = await fetch(`${BASE_URL}/orders/my-receipts`, {
+        method: 'GET',
+        headers: getHeaders()
+    });
+    if (!response.ok) {
+        throw new Error('Failed to retrieve receipts.');
+    }
+    return response.json();
+}
