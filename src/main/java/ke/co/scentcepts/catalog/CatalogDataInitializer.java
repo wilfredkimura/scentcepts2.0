@@ -2,27 +2,35 @@ package ke.co.scentcepts.catalog;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import ke.co.scentcepts.user.User;
+import ke.co.scentcepts.user.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import java.math.BigDecimal;
 import java.util.Arrays;
 
 /**
  * CatalogDataInitializer implements CommandLineRunner to execute immediately upon application startup.
- * The class checks if the 'perfumes' table contains any data. If the table is empty, it seeds the 
- * database with standard sample products so the backend catalog and eventual frontend displays are populated.
+ * The class checks if the 'perfumes' and 'users' tables contain any data. If empty, it seeds the 
+ * database with sample products and a default admin user.
  */
 @Component
 public class CatalogDataInitializer implements CommandLineRunner {
 
-    // PerfumeRepository is injected to perform database query (count) and persistence (saveAll) operations
+    // Injected repositories and password encoder for database seeding
     private final PerfumeRepository perfumeRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
-     * Constructor injection ensures the required repository is injected by Spring during context loading.
-     *
-     * @param perfumeRepository database access interface for Perfume entity management
+     * Constructor injection ensures the required repositories and encoder are supplied by Spring.
      */
-    public CatalogDataInitializer(PerfumeRepository perfumeRepository) {
+    public CatalogDataInitializer(
+            PerfumeRepository perfumeRepository, 
+            UserRepository userRepository, 
+            PasswordEncoder passwordEncoder) {
         this.perfumeRepository = perfumeRepository;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /**
@@ -78,6 +86,20 @@ public class CatalogDataInitializer implements CommandLineRunner {
             System.out.println("Catalog Data Initializer: Sample perfumes successfully seeded into the database.");
         } else {
             System.out.println("Catalog Data Initializer: Skip seeding. Database already has records.");
+        }
+
+        // Check if the default administrator account exists in database. If absent, seed it automatically.
+        if (userRepository.findByEmail("admin@scentcepts.com").isEmpty()) {
+            System.out.println("Catalog Data Initializer: Seeding default administrator account...");
+            User admin = new User(
+                    "admin@scentcepts.com",
+                    passwordEncoder.encode("admin123"),
+                    "ROLE_ADMIN"
+            );
+            userRepository.save(admin);
+            System.out.println("Catalog Data Initializer: Default administrator registered successfully.");
+        } else {
+            System.out.println("Catalog Data Initializer: Administrator account admin@scentcepts.com is already active.");
         }
     }
 }

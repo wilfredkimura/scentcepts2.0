@@ -93,6 +93,16 @@ export default function AdminDashboard() {
       setPerfumes(perfumesData);
     } catch (err) {
       setErrorMsg(err.message || "Failed to sync management database.");
+      
+      // If endpoint returns 401/403 (unauthorized/admin required), clear state and redirect to login
+      if (err.message && (err.message.includes("Unauthorized") || err.message.includes("Admins only"))) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("email");
+        localStorage.removeItem("role");
+        setIsAdmin(false);
+        alert("Session expired or unauthorized. Returning to login.");
+        window.location.href = "/";
+      }
     } finally {
       setLoading(false);
       setIsCheckingAuth(false);

@@ -12,9 +12,9 @@ import java.util.Date;
 
 @Component
 public class JwtUtil {
-    // In a real production environment, load this from application.properties
-    // TODO: Load this from application.properties
-    private final Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    // Static secret signing key to ensure JWT tokens survive server restarts during development
+    private static final String SECRET_STRING = "scentcepts_luxury_perfume_store_jwt_secret_signing_key_at_least_32_bytes_long_for_hmac_sha256";
+    private final Key key = Keys.hmacShaKeyFor(SECRET_STRING.getBytes());
     private final long expirationTime = 86400000; // 24 hours in milliseconds
 
     public String generateToken(String email, String role) {
