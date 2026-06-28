@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { signup, signin, getPerfumes, checkout, getOrderStatus } from "./api";
+import Link from "next/link";
 
 /**
  * Main application dashboard and checkout interface.
@@ -11,6 +12,7 @@ export default function Home() {
   // Auth state
   const [token, setToken] = useState(null);
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState(null);
   const [authMode, setAuthMode] = useState("signin"); // signin or signup
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -34,9 +36,11 @@ export default function Home() {
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     const savedEmail = localStorage.getItem("email");
+    const savedRole = localStorage.getItem("role");
     if (savedToken && savedEmail) {
       setToken(savedToken);
       setEmail(savedEmail);
+      setRole(savedRole);
       loadCatalog();
     }
   }, []);
@@ -108,8 +112,10 @@ export default function Home() {
         const data = await signin(authEmail, authPassword);
         localStorage.setItem("token", data.token);
         localStorage.setItem("email", data.email);
+        localStorage.setItem("role", data.role);
         setToken(data.token);
         setEmail(data.email);
+        setRole(data.role);
         setAuthEmail("");
         setAuthPassword("");
       }
@@ -122,8 +128,10 @@ export default function Home() {
   function handleLogout() {
     localStorage.removeItem("token");
     localStorage.removeItem("email");
+    localStorage.removeItem("role");
     setToken(null);
     setEmail("");
+    setRole(null);
     setPerfumes([]);
   }
 
@@ -256,6 +264,11 @@ export default function Home() {
         <div className="logo">Scentcepts</div>
         <div className="nav-user">
           <span className="user-email">{email}</span>
+          {role === "ROLE_ADMIN" && (
+            <Link id="admin-dashboard-link" href="/admin" className="btn-secondary" style={{ textDecoration: "none", color: "var(--primary)", borderColor: "var(--primary)" }}>
+              👑 Admin Console
+            </Link>
+          )}
           <button id="logout-btn" className="btn-secondary" onClick={handleLogout}>
             Logout
           </button>
