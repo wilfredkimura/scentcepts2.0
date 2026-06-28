@@ -417,6 +417,17 @@ export default function ProductDetailPage({ params }) {
                       </div>
                     </div>
                     <div className="space-y-1">
+                      <label className="text-[11px] font-semibold uppercase text-muted-foreground block">Contact Phone Number</label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="e.g. 254712345678"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="w-full bg-background border border-border/50 text-foreground px-3 py-2 rounded-none outline-none focus:border-primary text-body-md"
+                      />
+                    </div>
+                    <div className="space-y-1">
                       <label className="text-[11px] font-semibold uppercase text-muted-foreground block">Delivery Address / Location</label>
                       <input
                         type="text"

@@ -451,20 +451,30 @@ export default function AdminPage() {
                   <thead>
                     <tr className="border-b border-border/50 text-muted-foreground uppercase text-xs tracking-wider">
                       <th className="py-3 px-4">Trans ID</th>
-                      <th className="py-3 px-4">Checkout ID</th>
-                      <th className="py-3 px-4">Amount</th>
-                      <th className="py-3 px-4">Sender Phone</th>
-                      <th className="py-3 px-4">Checkout Date</th>
+                      <th className="py-3 px-4">Checkout Request ID</th>
+                      <th className="py-3 px-4">Order ID</th>
+                      <th className="py-3 px-4">User ID</th>
+                      <th className="py-3 px-4">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {transactions.map((tx) => (
                       <tr key={tx.id} className="border-b border-border/30 hover:bg-muted/10">
-                        <td className="py-3 px-4 text-primary font-medium">{tx.mpesaReceiptNumber || "PENDING"}</td>
-                        <td className="py-3 px-4 text-muted-foreground text-xs">{tx.merchantRequestID}</td>
-                        <td className="py-3 px-4 text-foreground">KES {tx.amount.toLocaleString()}</td>
-                        <td className="py-3 px-4 text-foreground">{tx.phoneNumber}</td>
-                        <td className="py-3 px-4 text-muted-foreground text-xs">{tx.transactionDate || "N/A"}</td>
+                        <td className="py-3 px-4 text-primary font-medium">#{tx.id}</td>
+                        <td className="py-3 px-4 text-muted-foreground text-xs">{tx.checkoutRequestId}</td>
+                        <td className="py-3 px-4 text-foreground font-mono text-xs">{tx.orderId}</td>
+                        <td className="py-3 px-4 text-foreground">{tx.userId || "GUEST"}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none ${
+                            tx.status === "COMPLETED"
+                              ? "bg-green-500/10 text-green-500"
+                              : tx.status === "FAILED"
+                              ? "bg-red-500/10 text-red-500"
+                              : "bg-yellow-500/10 text-yellow-500"
+                          }`}>
+                            {tx.status}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                     {transactions.length === 0 && (
