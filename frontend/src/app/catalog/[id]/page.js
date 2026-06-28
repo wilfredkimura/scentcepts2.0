@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { getPerfumeById, checkout, getOrderStatus } from "../../api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function ProductDetailPage({ params }) {
   const router = useRouter();
-  const perfumeId = params.id;
+  const unwrappedParams = use(params);
+  const perfumeId = unwrappedParams.id;
 
   // Authentication status
   const [token, setToken] = useState(null);
