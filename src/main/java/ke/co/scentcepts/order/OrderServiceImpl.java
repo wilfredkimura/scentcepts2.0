@@ -21,15 +21,39 @@ public class OrderServiceImpl {
         this.eventPublisher = eventPublisher;
     }
 
+    /**
+     * checkout processes the purchase request, saves the pending order details to the database,
+     * and publishes an OrderCreatedEvent asynchronously to trigger STK Push payment prompts.
+     *
+     * @param request the order details sent by the controller (including resolved userId)
+     * @return the unique order ID string
+     */
     @Transactional
     public String checkout(Order request) {
-        String orderId = UUID.randomUUID().toString(); // generates a random unique string to be used as the orderId during checkout
-        Order order = new Order(orderId, request.getPhone(), request.getAmount(), request.getPerfumeId(), request.getQuantity());
-        orderRepository.save(order);
+        // Generate a cryptographically secure random UUID to identify this checkout transaction
+        String orderId = UUID.randomUUID().toString(); 
+        
+        // Instantiate the Order entity, providing the generated transaction ID and user ID mapping
+        Order order = new Order(
+                orderId, 
+                request.getPhone(), 
+                request.getAmount(), 
+                request.getPerfumeId(), 
+                request.getQuantity(), 
+                request.getUserId()
+        );
+        orderRepository.save(order); // Save the PENDING order in PostgreSQL
 
-        // Publish event to the internal in-memory bus
-        OrderCreatedEvent event = new OrderCreatedEvent(orderId, order.getPhone(), order.getAmount(), order.getPerfumeId(), order.getQuantity());
-        eventPublisher.publishEvent(event);
+        // Instantiate and publish the OrderCreatedEvent on the Spring Application Event Bus
+        OrderCreatedEvent event = new OrderCreatedEvent(
+                orderId, 
+                order.getPhone(), 
+                order.getAmount(), 
+                order.getPerfumeId(), 
+                order.getQuantity(), 
+                order.getUserId()
+        );
+        eventPublisher.publishEvent(event); // Triggers downstream payment listeners
 
         return orderId;
     }

@@ -1,23 +1,40 @@
 package ke.co.scentcepts.user;
 
 // import ke.co.scentcepts.user.UserRepository; // they are in the same dir so there is no need to import the file
+import ke.co.scentcepts.order.OrderRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map; // maps unique keys to specific values acts like a dictonary.
+import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 
-// REST controller for handling user authentication (signup and signin) requests.
-@RestController// this class handles HTTP requests
-@RequestMapping("/api/auth")// base URL for all endpoints in this controller
+/**
+ * AuthController manages user signups, signins, and secure admin endpoints.
+ * It coordinates JWT generation, bcrypt password hashing, and user/order data dumps for dashboards.
+ */
+@RestController
+@RequestMapping("/api/auth")
 public class AuthController {
     
+    // Repository managing persistence operations for the User entity
     private final UserRepository userRepository;
+    
+    // Repository managing persistence operations for the Order entity
+    private final OrderRepository orderRepository;
+    
+    // Utility component to create, decode and validate JWT tokens
     private final JwtUtil jwtUtil;
+    
+    // Security encoder to securely hash and verify user passwords
     private final PasswordEncoder passwordEncoder;
 
-    // Constructor injection for UserRepository, JwtUtil, and PasswordEncoder
-    public AuthController(UserRepository userRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
+    /**
+     * Constructor injection ensures Spring automatically injects repositories and encoders on startup.
+     */
+    public AuthController(UserRepository userRepository, OrderRepository orderRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.orderRepository = orderRepository;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
     }
@@ -65,5 +82,38 @@ public class AuthController {
             "email", user.getEmail(),
             "role", user.getRole()
         ));
+    }
+
+    /**
+     * GET endpoint to retrieve registered users.
+     * Restricted to authenticated users holding ROLE_ADMIN authority.
+     * 
+     * @return list of user mappings (excluding password hashes for safety)
+     */
+    @GetMapping("/admin/users")
+    public ResponseEntity<?> getAdminUsers() {
+        System.out.println("Admin API: Retrieving account listings...");
+        
+        List<Map<String, Object>> users = userRepository.findAll().stream()
+                .map(user -> Map.of(
+                        "id", (Object) user.getId(),
+                        "email", (Object) user.getEmail(),
+                        "role", (Object) user.getRole()
+                ))
+                .collect(Collectors.toList());
+                
+        return ResponseEntity.ok(users);
+    }
+
+    /**
+     * GET endpoint to retrieve order logs.
+     * Restricted to authenticated users holding ROLE_ADMIN authority.
+     * 
+     * @return list of order transaction data
+     */
+    @GetMapping("/admin/orders")
+    public ResponseEntity<?> getAdminOrders() {
+        System.out.println("Admin API: Retrieving placed order data...");
+        return ResponseEntity.ok(orderRepository.findAll());
     }
 }

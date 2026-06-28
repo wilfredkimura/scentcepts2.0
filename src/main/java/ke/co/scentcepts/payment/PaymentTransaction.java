@@ -13,19 +13,22 @@ public class PaymentTransaction {
     @Column(unique = true, nullable = false) // unique and not null
     private String checkoutRequestId; // Safaricom's tracking ID
 
-    private String orderId;
-    private Long perfumeId;
-    private Integer quantity;
-    private String status; // PENDING, COMPLETED, FAILED
+    private String orderId; // Associated Order ID in orders table
+    private Long perfumeId; // Associated Perfume ID in perfumes table
+    private Integer quantity; // Item quantity purchased
+    private String status; // Status of transaction: PENDING, COMPLETED, FAILED
+    private Long userId; // Associated User ID in users table
 
     public PaymentTransaction() {
     }
 
-    public PaymentTransaction(String checkoutRequestId, String orderId, Long perfumeId, Integer quantity) {
+    // Constructor to instantiate a new PaymentTransaction tracking log
+    public PaymentTransaction(String checkoutRequestId, String orderId, Long perfumeId, Integer quantity, Long userId) {
         this.checkoutRequestId = checkoutRequestId;
         this.orderId = orderId;
         this.perfumeId = perfumeId;
         this.quantity = quantity;
+        this.userId = userId;
         this.status = "PENDING";
     }
 
@@ -56,5 +59,13 @@ public class PaymentTransaction {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 }

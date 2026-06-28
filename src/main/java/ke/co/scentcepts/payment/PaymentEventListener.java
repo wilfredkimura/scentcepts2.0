@@ -98,15 +98,16 @@ public class PaymentEventListener {
                 // This is the tracking ID that will be used to track the payment status.
                 String checkoutRequestId = responseBody.get("CheckoutRequestID").asText();
 
-                // CRITICAL FIX: Save the Safaricom tracking ID alongside the Order context
+                // CRITICAL FIX: Save the Safaricom tracking ID alongside the Order and User context in database
                 PaymentTransaction transaction = new PaymentTransaction(
                         checkoutRequestId,
                         event.orderId(),
                         event.perfumeId(),
-                        event.quantity());
+                        event.quantity(),
+                        event.userId()); // Store the user ID mapping
                 transactionRepository.save(transaction);
 
-                System.out.println("STK Push triggered. Tracking ID saved: " + checkoutRequestId);
+                System.out.println("STK Push triggered. Tracking ID saved: " + checkoutRequestId + " for User ID: " + event.userId());
             }
 
             System.out.println("STK Push Response: " + response.getBody());

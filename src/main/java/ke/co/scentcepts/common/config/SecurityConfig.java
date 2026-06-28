@@ -51,6 +51,8 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Configure CORS permissions explicitly
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Admin restricted endpoints - evaluated first to block public access
+                        .requestMatchers("/api/auth/admin/**").hasRole("ADMIN")
                         // Publicly accessible endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/perfumes/**").permitAll()

@@ -142,3 +142,39 @@ export async function getOrderStatus(orderId) {
     }
     return response.json();
 }
+
+/**
+ * Fetches all registered users for the admin dashboard.
+ * Restricted to accounts holding ROLE_ADMIN.
+ * 
+ * @returns {Promise<Array>} list of user mappings containing email, id, and role
+ */
+export async function getAdminUsers() {
+    const response = await fetch(`${BASE_URL}/auth/admin/users`, {
+        method: 'GET',
+        headers: getHeaders()
+    });
+    
+    if (!response.ok) {
+        throw new Error('Unauthorized or failed to load users. Admins only.');
+    }
+    return response.json();
+}
+
+/**
+ * Fetches all placed order logs for the admin dashboard.
+ * Restricted to accounts holding ROLE_ADMIN.
+ * 
+ * @returns {Promise<Array>} list of order items
+ */
+export async function getAdminOrders() {
+    const response = await fetch(`${BASE_URL}/auth/admin/orders`, {
+        method: 'GET',
+        headers: getHeaders()
+    });
+    
+    if (!response.ok) {
+        throw new Error('Unauthorized or failed to load orders. Admins only.');
+    }
+    return response.json();
+}
