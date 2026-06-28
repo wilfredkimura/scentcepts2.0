@@ -9,6 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @EnableWebSecurity
@@ -53,10 +54,15 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Admin restricted endpoints - evaluated first to block public access
                         .requestMatchers("/api/auth/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/perfumes/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/perfumes/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/perfumes/**").hasRole("ADMIN")
+                        
                         // Publicly accessible endpoints
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/perfumes/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/perfumes/**").permitAll()
                         .requestMatchers("/api/payments/callback").permitAll()
+                        
                         // All other endpoints require authentication
                         .anyRequest().authenticated())
 

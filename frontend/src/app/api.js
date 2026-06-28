@@ -178,3 +178,113 @@ export async function getAdminOrders() {
     }
     return response.json();
 }
+
+/**
+ * Fetches all payment transactions for the admin dashboard.
+ * Restricted to ROLE_ADMIN.
+ */
+export async function getAdminTransactions() {
+    const response = await fetch(`${BASE_URL}/auth/admin/transactions`, {
+        method: 'GET',
+        headers: getHeaders()
+    });
+    if (!response.ok) {
+        throw new Error('Unauthorized or failed to load transactions. Admins only.');
+    }
+    return response.json();
+}
+
+/**
+ * Adds a new perfume item in the catalog.
+ * Restricted to ROLE_ADMIN.
+ */
+export async function adminCreatePerfume(perfume) {
+    const response = await fetch(`${BASE_URL}/perfumes`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(perfume)
+    });
+    if (!response.ok) {
+        throw new Error('Failed to create perfume record.');
+    }
+    return response.json();
+}
+
+/**
+ * Updates details of an existing perfume in the catalog.
+ * Restricted to ROLE_ADMIN.
+ */
+export async function adminUpdatePerfume(id, perfume) {
+    const response = await fetch(`${BASE_URL}/perfumes/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(perfume)
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to update perfume ID: ${id}`);
+    }
+    return response.json();
+}
+
+/**
+ * Deletes a perfume item from the catalog.
+ * Restricted to ROLE_ADMIN.
+ */
+export async function adminDeletePerfume(id) {
+    const response = await fetch(`${BASE_URL}/perfumes/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to delete perfume ID: ${id}`);
+    }
+    return response.json();
+}
+
+/**
+ * Creates a new user account.
+ * Restricted to ROLE_ADMIN.
+ */
+export async function adminCreateUser(user) {
+    const response = await fetch(`${BASE_URL}/auth/admin/users`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(user)
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create user account.');
+    }
+    return response.json();
+}
+
+/**
+ * Updates details of an existing user account.
+ * Restricted to ROLE_ADMIN.
+ */
+export async function adminUpdateUser(id, user) {
+    const response = await fetch(`${BASE_URL}/auth/admin/users/${id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(user)
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to update user account ID: ${id}`);
+    }
+    return response.json();
+}
+
+/**
+ * Deletes a user account.
+ * Restricted to ROLE_ADMIN.
+ */
+export async function adminDeleteUser(id) {
+    const response = await fetch(`${BASE_URL}/auth/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to delete user account ID: ${id}`);
+    }
+    return response.json();
+}

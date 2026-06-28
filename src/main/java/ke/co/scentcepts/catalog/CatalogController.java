@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController // marks this class as a REST controller
 @RequestMapping("/api/perfumes") // base url for all endpoints in this controller
@@ -31,5 +32,45 @@ public class CatalogController {
                 .map(ResponseEntity::ok) // wraps the perfume in a 200 OK response
                 .orElse(ResponseEntity.notFound().build()); // returns a 404 Not Found response if the perfume is not
                                                             // found
+    }
+
+    /**
+     * POST endpoint to insert a new Perfume item.
+     * Restricted to ROLE_ADMIN users in SecurityConfig.
+     */
+    @PostMapping
+    public ResponseEntity<Perfume> createPerfume(@RequestBody Perfume perfume) {
+        System.out.println("Admin API: Seeding new perfume: " + perfume.getName());
+        return ResponseEntity.ok(perfumeRepository.save(perfume));
+    }
+
+    /**
+     * PUT endpoint to modify details of an existing perfume.
+     * Restricted to ROLE_ADMIN users in SecurityConfig.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<Perfume> updatePerfume(@PathVariable Long id, @RequestBody Perfume details) {
+        System.out.println("Admin API: Updating perfume ID: " + id);
+        return perfumeRepository.findById(id).map(perfume -> {
+            perfume.setName(details.getName());
+            perfume.setBrand(details.getBrand());
+            perfume.setPrice(details.getPrice());
+            perfume.setStockCount(details.getStockCount());
+            perfume.setDescription(details.getDescription());
+            return ResponseEntity.ok(perfumeRepository.save(perfume));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * DELETE endpoint to delete a perfume item from database catalog.
+     * Restricted to ROLE_ADMIN users in SecurityConfig.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deletePerfume(@PathVariable Long id) {
+        System.out.println("Admin API: Deleting perfume ID: " + id);
+        return perfumeRepository.findById(id).map(perfume -> {
+            perfumeRepository.delete(perfume);
+            return ResponseEntity.ok(Map.of("message", "Perfume deleted successfully"));
+        }).orElse(ResponseEntity.notFound().build());
     }
 }

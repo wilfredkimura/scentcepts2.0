@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import ke.co.scentcepts.payment.PaymentTransactionRepository;
+
 /**
  * AuthController manages user signups, signins, and secure admin endpoints.
  * It coordinates JWT generation, bcrypt password hashing, and user/order data dumps for dashboards.
@@ -23,6 +25,9 @@ public class AuthController {
     // Repository managing persistence operations for the Order entity
     private final OrderRepository orderRepository;
     
+    // Repository managing persistence operations for the PaymentTransaction entity
+    private final PaymentTransactionRepository transactionRepository;
+    
     // Utility component to create, decode and validate JWT tokens
     private final JwtUtil jwtUtil;
     
@@ -32,9 +37,15 @@ public class AuthController {
     /**
      * Constructor injection ensures Spring automatically injects repositories and encoders on startup.
      */
-    public AuthController(UserRepository userRepository, OrderRepository orderRepository, JwtUtil jwtUtil, PasswordEncoder passwordEncoder) {
+    public AuthController(
+            UserRepository userRepository, 
+            OrderRepository orderRepository, 
+            PaymentTransactionRepository transactionRepository,
+            JwtUtil jwtUtil, 
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.orderRepository = orderRepository;
+        this.transactionRepository = transactionRepository;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
     }
@@ -115,5 +126,68 @@ public class AuthController {
     public ResponseEntity<?> getAdminOrders() {
         System.out.println("Admin API: Retrieving placed order data...");
         return ResponseEntity.ok(orderRepository.findAll());
+    }
+
+    /**
+     * GET endpoint to retrieve all payment transactions.
+     * Restricted to authenticated users holding ROLE_ADMIN authority.
+     */
+    @GetMapping("/admin/transactions")
+    public ResponseEntity<?> getAdminTransactions() {
+        System.out.println("Admin API: Retrieving payment transaction logs...");
+        return ResponseEntity.ok(transactionRepository.findAll());
+    }
+
+    /**
+     * POST endpoint for administrative creation of a new user account.
+     * Restricted to ROLE_ADMIN.
+     */
+    @PostMapping("/admin/users")
+    public ResponseEntity<?> createAdminUser(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String rawPassword = request.get("password");
+        String role = request.get("role"); // ROLE_CUSTOMER or ROLE_ADMIN
+
+        if (userRepository.findByEmail(email).isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is already registered"));
+        }
+
+        User newUser = new User(email, passwordEncoder.encode(rawPassword), role);
+        userRepository.save(newUser);
+        return ResponseEntity.ok(Map.of("message", "User account created successfully"));
+    }
+
+    /**
+     * PUT endpoint to update user details (email, role, optional password).
+     * Restricted to ROLE_ADMIN.
+     */
+    @PutMapping("/admin/users/{id}")
+    public ResponseEntity<?> updateAdminUser(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        System.out.println("Admin API: Updating user account ID: " + id);
+        return userRepository.findById(id).map(user -> {
+            user.setEmail(request.get("email"));
+            user.setRole(request.get("role"));
+            
+            // Re-hash and update password only if a non-blank password is provided
+            if (request.containsKey("password") && request.get("password") != null && !request.get("password").isBlank()) {
+                user.setPassword(passwordEncoder.encode(request.get("password")));
+            }
+            
+            userRepository.save(user);
+            return ResponseEntity.ok(Map.of("message", "User account updated successfully"));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * DELETE endpoint to remove a user account.
+     * Restricted to ROLE_ADMIN.
+     */
+    @DeleteMapping("/admin/users/{id}")
+    public ResponseEntity<?> deleteAdminUser(@PathVariable Long id) {
+        System.out.println("Admin API: Deleting user account ID: " + id);
+        return userRepository.findById(id).map(user -> {
+            userRepository.delete(user);
+            return ResponseEntity.ok(Map.of("message", "User account deleted successfully"));
+        }).orElse(ResponseEntity.notFound().build());
     }
 }
