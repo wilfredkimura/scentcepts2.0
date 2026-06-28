@@ -32,7 +32,10 @@ public class SecurityConfig {
     @Bean
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration corsConfig = new org.springframework.web.cors.CorsConfiguration();
-        corsConfig.setAllowedOrigins(java.util.List.of("http://localhost:3000")); // Allow Next.js dev server
+        corsConfig.setAllowedOrigins(java.util.List.of(
+                "http://localhost:3000",
+                "https://scentcepts.kimuramutahi.xyz"
+        )); // Allow Next.js local dev server and production domain
         corsConfig.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         corsConfig.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type"));
         corsConfig.setExposedHeaders(java.util.List.of("Authorization"));
