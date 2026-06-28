@@ -27,18 +27,33 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // CORS configuration source bean to explicitly allow cross-origin requests from the Next.js UI on port 3000
+    @Bean
+    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+        org.springframework.web.cors.CorsConfiguration corsConfig = new org.springframework.web.cors.CorsConfiguration();
+        corsConfig.setAllowedOrigins(java.util.List.of("http://localhost:3000")); // Allow Next.js dev server
+        corsConfig.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        corsConfig.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type"));
+        corsConfig.setExposedHeaders(java.util.List.of("Authorization"));
+        corsConfig.setAllowCredentials(true);
+
+        org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", corsConfig);
+        return source;
+    }
+
     // Global HTTP rules for entire Scentcepts application. This is where we define
     // which endpoints are public and which require authentication.
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable()) // Disable CSRF for stateless JWT APIs
-                .cors(cors -> cors.configure(http)) // Allow Next.js cross-origin requests
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Configure CORS permissions explicitly
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // Publicly accessible endpoints
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/perfumes").permitAll()
+                        .requestMatchers("/api/perfumes/**").permitAll()
                         .requestMatchers("/api/payments/callback").permitAll()
                         // All other endpoints require authentication
                         .anyRequest().authenticated())
