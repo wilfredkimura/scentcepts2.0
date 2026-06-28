@@ -3,8 +3,8 @@ import Navbar from "./Navbar";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Scentcepts 2.0 | Premium Perfumes & M-Pesa Checkout",
-  description: "Browse our curated collection of fine perfumes, place orders, and pay securely via Safaricom M-Pesa STK Push.",
+  title: "Scentcepts",
+  description: "Browse our curated collection of fine perfumes and place orders",
 };
 
 export default function RootLayout({ children }) {
